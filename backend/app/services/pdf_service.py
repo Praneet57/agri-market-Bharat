@@ -1,0 +1,69 @@
+import io, os
+from datetime import datetime
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.enums import TA_CENTER
+
+async def generate_agreement_pdf(order, db) -> str:
+    from sqlalchemy import select
+    from app.models.user import User
+    from app.models.product import Product
+    farmer_r = await db.execute(select(User).where(User.id==order.farmer_id))
+    farmer = farmer_r.scalar_one_or_none()
+    buyer_r = await db.execute(select(User).where(User.id==order.buyer_id))
+    buyer = buyer_r.scalar_one_or_none()
+    product = None
+    if order.product_id:
+        pr = await db.execute(select(Product).where(Product.id==order.product_id))
+        product = pr.scalar_one_or_none()
+    filename = f"/tmp/agreement_{order.order_number}.pdf"
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+    styles = getSampleStyleSheet()
+    GREEN = colors.HexColor("#1a5c2a")
+    title_s = ParagraphStyle("T", parent=styles["Heading1"], alignment=TA_CENTER, fontSize=18, textColor=GREEN)
+    sub_s = ParagraphStyle("S", parent=styles["Normal"], alignment=TA_CENTER, fontSize=10, textColor=colors.gray)
+    h2_s = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=12, textColor=GREEN)
+    body_s = ParagraphStyle("B", parent=styles["Normal"], fontSize=10, leading=16)
+    story = []
+    story.append(Paragraph("🌾 AGRI MARKETPLACE", title_s))
+    story.append(Paragraph("Agricultural Trade Agreement", sub_s))
+    story.append(Spacer(1,4*mm))
+    story.append(HRFlowable(width="100%", thickness=2, color=GREEN))
+    story.append(Spacer(1,4*mm))
+    story.append(Paragraph("Agreement Details", h2_s))
+    det = [["Order Number", order.order_number],["Date", datetime.utcnow().strftime("%d %B %Y")],["Status", order.status.upper()]]
+    dt = Table(det, colWidths=[60*mm,110*mm])
+    dt.setStyle(TableStyle([("BACKGROUND",(0,0),(0,-1),colors.HexColor("#e8f5e9")),("FONTSIZE",(0,0),(-1,-1),10),("GRID",(0,0),(-1,-1),0.5,colors.grey),("PADDING",(0,0),(-1,-1),6)]))
+    story.append(dt); story.append(Spacer(1,4*mm))
+    story.append(Paragraph("Parties", h2_s))
+    parties = [["Role","Name","Phone","District"],
+               ["Farmer",farmer.full_name if farmer else "N/A",farmer.phone if farmer else "N/A",farmer.district or "N/A" if farmer else "N/A"],
+               ["Buyer",buyer.full_name if buyer else "N/A",buyer.phone if buyer else "N/A",buyer.district or "N/A" if buyer else "N/A"]]
+    pt = Table(parties, colWidths=[40*mm,50*mm,40*mm,40*mm])
+    pt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),GREEN),("TEXTCOLOR",(0,0),(-1,0),colors.white),("FONTSIZE",(0,0),(-1,-1),10),("GRID",(0,0),(-1,-1),0.5,colors.grey),("PADDING",(0,0),(-1,-1),6)]))
+    story.append(pt); story.append(Spacer(1,4*mm))
+    story.append(Paragraph("Transaction Details", h2_s))
+    prod_data = [["Item","Details"],["Product",product.name if product else "As agreed"],
+                 ["Quantity",f"{order.quantity_kg} kg"],["Rate",f"₹{order.price_per_kg:.2f}/kg"],
+                 ["Total",f"₹{order.total_amount:.2f}"],["Platform Fee",f"₹{order.platform_fee:.2f}"],
+                 ["Net to Farmer",f"₹{order.net_amount:.2f}"]]
+    trt = Table(prod_data, colWidths=[80*mm,90*mm])
+    trt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),GREEN),("TEXTCOLOR",(0,0),(-1,0),colors.white),("BACKGROUND",(0,-1),(-1,-1),colors.HexColor("#e8f5e9")),("FONTSIZE",(0,0),(-1,-1),10),("GRID",(0,0),(-1,-1),0.5,colors.grey),("PADDING",(0,0),(-1,-1),6)]))
+    story.append(trt); story.append(Spacer(1,4*mm))
+    story.append(Paragraph("Terms & Conditions", h2_s))
+    for t in ["1. Farmer agrees to supply the specified quantity at the agreed price.","2. Buyer agrees to accept and pay for produce upon delivery.","3. Payment is held in escrow and released upon delivery confirmation.","4. Platform fee of 2% is non-refundable once payment is processed.","5. Disputes resolved through the Agri Marketplace platform.","6. This agreement is binding under Indian Contract Act, 1872."]:
+        story.append(Paragraph(t, body_s)); story.append(Spacer(1,2*mm))
+    story.append(Spacer(1,8*mm))
+    sig_data = [["Farmer Signature","Buyer Signature"],[farmer.full_name+" (Pending)" if farmer else "Pending",buyer.full_name+" (Pending)" if buyer else "Pending"],["Date: __________","Date: __________"]]
+    st = Table(sig_data, colWidths=[85*mm,85*mm])
+    st.setStyle(TableStyle([("GRID",(0,0),(-1,-1),0.5,colors.grey),("ALIGN",(0,0),(-1,-1),"CENTER"),("PADDING",(0,0),(-1,-1),8),("ROWHEIGHT",(0,1),(-1,1),30)]))
+    story.append(st); story.append(Spacer(1,8*mm))
+    story.append(HRFlowable(width="100%",thickness=1,color=colors.grey))
+    story.append(Paragraph(f"Generated by Agri Marketplace | {datetime.utcnow().strftime('%d %b %Y %H:%M')} UTC", sub_s))
+    doc.build(story)
+    with open(filename,"wb") as f: f.write(buffer.getvalue())
+    return filename

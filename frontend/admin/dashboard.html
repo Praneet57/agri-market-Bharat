@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin – AgriMarket</title><link rel="stylesheet" href="/static/css/style.css"/><style>.tbl{width:100%;border-collapse:collapse;font-size:.88rem}.tbl th{background:var(--green);color:white;padding:.7rem .9rem;text-align:left}.tbl td{padding:.65rem .9rem;border-bottom:1px solid var(--border)}.tbl tr:hover td{background:var(--green-pale)}</style></head>
+<body>
+<nav class="navbar"><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket <span style="font-size:.7rem;opacity:.7;margin-left:.3rem">ADMIN</span></a>
+  <div style="display:flex;align-items:center;gap:1rem"><span style="color:rgba(255,255,255,.8);font-size:.9rem" id="admin-name"></span><a href="#" onclick="logout()" style="color:rgba(255,255,255,.7);font-size:.85rem;text-decoration:none">Logout</a></div>
+</nav>
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <a class="sidebar-item active" onclick="show('overview')"><span class="icon">📊</span> Overview</a>
+    <a class="sidebar-item" onclick="show('users')"><span class="icon">👥</span> Users</a>
+    <a class="sidebar-item" onclick="show('products')"><span class="icon">🌿</span> Products</a>
+    <a class="sidebar-item" onclick="show('orders')"><span class="icon">📦</span> Orders</a>
+  </aside>
+  <main class="main-content">
+    <section id="s-overview">
+      <h2 class="section-title">📊 Platform Overview</h2>
+      <div class="stats-grid"><div class="stat-card"><div class="stat-value" id="su">…</div><div class="stat-label">Total Users</div></div><div class="stat-card"><div class="stat-value" id="sf">…</div><div class="stat-label">Farmers</div></div><div class="stat-card"><div class="stat-value" id="sb">…</div><div class="stat-label">Buyers</div></div><div class="stat-card"><div class="stat-value" id="so">…</div><div class="stat-label">Orders</div></div><div class="stat-card"><div class="stat-value" id="sgmv">…</div><div class="stat-label">GMV</div></div><div class="stat-card"><div class="stat-value" id="srev">…</div><div class="stat-label">Revenue</div></div></div>
+      <div id="health-box" class="card" style="max-width:400px"><div class="card-header"><strong>API Health</strong></div><div class="card-body" id="health-info">Checking…</div></div>
+    </section>
+    <section id="s-users" style="display:none">
+      <div class="row-between mb-2"><h2 class="section-title" style="margin:0">👥 Users</h2><input type="text" id="user-search" class="form-control" placeholder="Search…" style="width:220px" oninput="filterUsers()"/></div>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Role</th><th>District</th><th>Verified</th><th>Actions</th></tr></thead><tbody id="users-body"><tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+    </section>
+    <section id="s-products" style="display:none">
+      <h2 class="section-title">🌿 Products</h2>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Farmer ID</th><th>Qty (kg)</th><th>Price/kg</th><th>Status</th><th>Organic</th></tr></thead><tbody id="products-body"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+    </section>
+    <section id="s-orders" style="display:none">
+      <h2 class="section-title">📦 Orders</h2>
+      <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap"><button class="btn btn-green btn-sm" onclick="filterOrders('all',this)">All</button><button class="btn btn-gray btn-sm" onclick="filterOrders('pending',this)">Pending</button><button class="btn btn-gray btn-sm" onclick="filterOrders('paid',this)">Paid</button><button class="btn btn-gray btn-sm" onclick="filterOrders('completed',this)">Completed</button><button class="btn btn-gray btn-sm" onclick="filterOrders('disputed',this)">Disputed</button></div>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Order #</th><th>Farmer</th><th>Buyer</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="orders-body"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+    </section>
+  </main>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+if(!requireAuth())throw new Error();
+const user=getUser();
+document.getElementById("admin-name").textContent=user.full_name;
+let allUsers=[],allOrders=[],orderFilter="all";
+
+function show(name){
+  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
+  document.querySelectorAll(".sidebar-item").forEach(a=>a.classList.remove("active"));
+  document.getElementById("s-"+name).style.display="block";
+  if(name==="users"&&!allUsers.length)loadUsers();
+  if(name==="products")loadProducts();
+  if(name==="orders"&&!allOrders.length)loadOrders();
+}
+
+async function loadOverview(){
+  try{
+    const stats=await API.adminStats();
+    document.getElementById("su").textContent=stats.users.total;
+    document.getElementById("sf").textContent=stats.users.farmers;
+    document.getElementById("sb").textContent=stats.users.buyers;
+    document.getElementById("so").textContent=stats.orders.total;
+    document.getElementById("sgmv").textContent=formatCurrency(stats.financials.gmv);
+    document.getElementById("srev").textContent=formatCurrency(stats.financials.revenue);
+    const h=await fetch("/api/health").then(r=>r.json());
+    document.getElementById("health-info").innerHTML=`<div>Status: <strong style="color:var(--green)">✅ ${h.status}</strong></div><div>Redis: <strong>${h.redis}</strong></div><div>Version: <strong>${h.version}</strong></div>`;
+  }catch(e){document.getElementById("health-info").textContent="Could not load stats. Admin role required."}
+}
+
+async function loadUsers(){
+  try{
+    const us=await apiFetch("/admin/users?limit=100");
+    allUsers=us;renderUsers(us);
+  }catch(e){document.getElementById("users-body").innerHTML=`<tr><td colspan="7" style="color:red;text-align:center">${e.message}</td></tr>`}
+}
+
+function renderUsers(users){
+  document.getElementById("users-body").innerHTML=users.length?users.map(u=>`<tr><td>${u.id}</td><td><strong>${u.full_name}</strong></td><td>${u.phone}</td><td><span class="tag">${u.role}</span></td><td>${u.district||"—"}</td><td>${u.is_verified?"✅":"❌"}</td><td><button class="btn btn-gray btn-sm" onclick="toggleUser(${u.id})">Toggle</button></td></tr>`).join(""):'<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">No users</td></tr>';
+}
+function filterUsers(){const q=document.getElementById("user-search").value.toLowerCase();renderUsers(allUsers.filter(u=>u.full_name.toLowerCase().includes(q)||u.phone.includes(q)))}
+async function toggleUser(id){try{const r=await apiFetch(`/admin/users/${id}/toggle-active`,{method:"PATCH"});showToast(`User ${r.is_active?"activated":"deactivated"}`,"info");loadUsers()}catch(e){showToast(e.message,"error")}}
+
+async function loadProducts(){
+  try{
+    const ps=await API.listProducts({limit:100});
+    document.getElementById("products-body").innerHTML=ps.length?ps.map(p=>`<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td>${p.category}</td><td>${p.farmer_id}</td><td>${p.quantity_kg}</td><td>${formatCurrency(p.price_per_kg)}</td><td>${statusBadge(p.status)}</td><td>${p.is_organic?"🌿":"—"}</td></tr>`).join(""):'<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No products</td></tr>';
+  }catch(e){}
+}
+
+async function loadOrders(){
+  try{allOrders=await API.listOrders();renderOrders()}catch(e){}
+}
+
+function renderOrders(){
+  const rows=(orderFilter==="all"?allOrders:allOrders.filter(o=>o.status===orderFilter));
+  document.getElementById("orders-body").innerHTML=rows.length?rows.map(o=>`<tr><td><strong>${o.order_number}</strong></td><td>${o.farmer_id}</td><td>${o.buyer_id}</td><td>${formatCurrency(o.total_amount)}</td><td>${statusBadge(o.status)}</td><td>${formatDate(o.created_at)}</td></tr>`).join(""):'<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No orders</td></tr>';
+}
+
+function filterOrders(status,btn){orderFilter=status;document.querySelectorAll(".btn-sm").forEach(b=>{if(b.onclick&&b.onclick.toString().includes("filterOrders"))b.className="btn btn-gray btn-sm"});btn.className="btn btn-green btn-sm";renderOrders()}
+
+loadOverview();
+</script></body></html>

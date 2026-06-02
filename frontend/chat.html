@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Chat – AgriMarket</title><link rel="stylesheet" href="/static/css/style.css"/></head>
+<body style="overflow:hidden">
+<nav class="navbar">
+  <div style="display:flex;align-items:center;gap:1rem"><a onclick="history.back()" style="color:rgba(255,255,255,.8);cursor:pointer;font-size:1.2rem">←</a><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket</a></div>
+  <div style="display:flex;align-items:center;gap:.5rem"><span class="online-dot" id="online-dot" style="display:none"></span><span style="color:rgba(255,255,255,.85);font-size:.9rem" id="chat-with">Chat</span></div>
+</nav>
+<div class="chat-container">
+  <div class="chat-header">
+    <div><strong id="order-info">Loading…</strong><div class="text-sm text-muted" id="order-status"></div></div>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-outline-green btn-sm" onclick="genAgreement()">📄 Agreement</button>
+      <button class="btn btn-gray btn-sm" onclick="history.back()">✕</button>
+    </div>
+  </div>
+  <div class="chat-messages" id="msgs"><div style="text-align:center;padding:2rem;color:var(--muted)">Connecting…</div></div>
+  <div id="typing-indicator" style="padding:.25rem 1.5rem;font-size:.8rem;color:var(--muted);min-height:20px"></div>
+  <div class="chat-input-bar">
+    <textarea class="chat-input" id="msg-input" placeholder="Type a message…" rows="1" onkeydown="handleKey(event)" oninput="handleTyping()"></textarea>
+    <button class="btn btn-green" onclick="sendMsg()">Send</button>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+if(!requireAuth())throw new Error();
+const params=new URLSearchParams(window.location.search);
+const orderId=parseInt(params.get("order_id"));
+const me=getUser();
+let ws=null,typingTimer=null,isTyping=false;
+if(!orderId){alert("No order ID");history.back()}
+
+async function init(){
+  try{
+    const order=await API.getOrder(orderId);
+    document.getElementById("order-info").textContent="Order "+order.order_number;
+    document.getElementById("order-status").innerHTML=statusBadge(order.status);
+    const other=order.farmer_id===me.id?"Buyer":"Farmer";
+    document.getElementById("chat-with").textContent=other;
+    const msgs=await API.getMessages(orderId);
+    renderMsgs(msgs);scrollBottom();
+  }catch(e){document.getElementById("order-info").textContent="Order #"+orderId}
+  connectWS();
+}
+
+function connectWS(){
+  const token=getToken();
+  const proto=location.protocol==="https:"?"wss":"ws";
+  ws=new WebSocket(`${proto}://${location.host}/api/v1/chat/ws/${orderId}?token=${token}`);
+  ws.onopen=()=>document.getElementById("online-dot").style.display="inline-block";
+  ws.onmessage=(e)=>{
+    const d=JSON.parse(e.data);
+    if(d.type==="message"){appendMsg(d);scrollBottom()}
+    else if(d.type==="typing"&&d.user_id!==me.id){document.getElementById("typing-indicator").textContent=d.is_typing?"Other person is typing…":""}
+    else if(d.type==="presence"){const online=d.online_users.some(u=>u!==me.id);document.getElementById("online-dot").style.display=online?"inline-block":"none"}
+  };
+  ws.onclose=()=>{document.getElementById("online-dot").style.display="none";setTimeout(connectWS,3000)};
+  ws.onerror=()=>ws.close();
+}
+
+function renderMsgs(msgs){
+  const c=document.getElementById("msgs");
+  if(!msgs.length){c.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">No messages yet. Say hello! 👋</div>';return}
+  c.innerHTML="";msgs.forEach(m=>appendMsg(m,false));
+}
+
+function appendMsg(msg,animate=true){
+  const c=document.getElementById("msgs");
+  if(c.querySelector("[data-empty]"))c.innerHTML="";
+  const mine=msg.sender_id===me.id;
+  const time=new Date(msg.created_at).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+  const d=document.createElement("div");
+  d.className=`message ${mine?"mine":"theirs"}`;
+  if(animate)d.style.animation="slideIn .2s ease";
+  d.innerHTML=`<div>${escHtml(msg.message)}</div><div class="message-time">${time}</div>`;
+  c.appendChild(d);
+}
+
+function escHtml(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>")}
+function scrollBottom(){const c=document.getElementById("msgs");c.scrollTop=c.scrollHeight}
+
+function sendMsg(){
+  const input=document.getElementById("msg-input"),text=input.value.trim();
+  if(!text||!ws||ws.readyState!==WebSocket.OPEN)return;
+  ws.send(JSON.stringify({type:"message",message:text}));
+  input.value="";input.style.height="auto";stopTyping();
+}
+
+function handleKey(e){
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg()}
+  const ta=e.target;ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,120)+"px";
+}
+
+function handleTyping(){
+  if(!ws||ws.readyState!==WebSocket.OPEN)return;
+  if(!isTyping){isTyping=true;ws.send(JSON.stringify({type:"typing",is_typing:true}))}
+  clearTimeout(typingTimer);typingTimer=setTimeout(stopTyping,2000);
+}
+
+function stopTyping(){
+  if(isTyping&&ws&&ws.readyState===WebSocket.OPEN){isTyping=false;ws.send(JSON.stringify({type:"typing",is_typing:false}))}
+}
+
+async function genAgreement(){
+  try{await API.generateAgreement(orderId);showToast("Agreement generated!","success");setTimeout(()=>window.open(`/api/v1/agreements/${orderId}/download`,"_blank"),500)}
+  catch(e){showToast(e.message,"error")}
+}
+
+init();
+</script></body></html>

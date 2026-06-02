@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Register – AgriMarket</title><link rel="stylesheet" href="/static/css/style.css"/></head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:500px">
+    <div class="auth-logo"><div class="icon">🌾</div><h1>Create Account</h1><p style="color:var(--muted);font-size:.9rem;margin-top:.25rem">Join AgriMarket for free</p></div>
+    <div style="margin-bottom:1.25rem"><label style="font-weight:500;font-size:.9rem;display:block;margin-bottom:.5rem">I am a…</label>
+      <div class="role-selector"><div class="role-btn selected" id="rf" onclick="selRole('farmer')"><span class="role-icon">🌱</span>Farmer</div><div class="role-btn" id="rb" onclick="selRole('buyer')"><span class="role-icon">🛒</span>Buyer</div></div>
+    </div>
+    <input type="hidden" id="role" value="farmer"/>
+    <div id="err" style="display:none;background:#fce4ec;color:#c62828;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="form-group" style="grid-column:1/-1"><label>Full Name *</label><input type="text" id="name" class="form-control" placeholder="Your full name"/></div>
+      <div class="form-group"><label>Phone *</label><input type="tel" id="phone" class="form-control" placeholder="10-digit mobile"/></div>
+      <div class="form-group"><label>Email</label><input type="email" id="email" class="form-control" placeholder="Optional"/></div>
+      <div class="form-group"><label>Password *</label><input type="password" id="pwd" class="form-control" placeholder="Min 6 chars"/></div>
+      <div class="form-group"><label>Confirm Password *</label><input type="password" id="cpwd" class="form-control" placeholder="Repeat"/></div>
+      <div class="form-group"><label>Village</label><input type="text" id="village" class="form-control" placeholder="Your village"/></div>
+      <div class="form-group"><label>District *</label><input type="text" id="district" class="form-control" placeholder="e.g. Coimbatore"/></div>
+      <div class="form-group" style="grid-column:1/-1"><label>State</label>
+        <select id="state" class="form-control"><option value="">Select state</option><option>Andhra Pradesh</option><option>Bihar</option><option>Gujarat</option><option>Haryana</option><option>Karnataka</option><option>Kerala</option><option>Madhya Pradesh</option><option>Maharashtra</option><option>Odisha</option><option>Punjab</option><option>Rajasthan</option><option>Tamil Nadu</option><option>Telangana</option><option>Uttar Pradesh</option><option>West Bengal</option></select>
+      </div>
+    </div>
+    <button class="btn btn-green btn-full mt-2" id="btn" onclick="doRegister()">Create Account</button>
+    <div class="text-center mt-2" style="font-size:.9rem;color:var(--muted)">Already have an account? <a href="/login.html" style="color:var(--green);font-weight:600">Sign In</a></div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+redirectIfLoggedIn();
+const params=new URLSearchParams(window.location.search);
+if(params.get("role")==="buyer")selRole("buyer");
+function selRole(r){document.getElementById("role").value=r;document.getElementById("rf").classList.toggle("selected",r==="farmer");document.getElementById("rb").classList.toggle("selected",r==="buyer")}
+async function doRegister(){
+  const err=document.getElementById("err"),btn=document.getElementById("btn");
+  err.style.display="none";
+  const data={full_name:document.getElementById("name").value.trim(),phone:document.getElementById("phone").value.trim(),email:document.getElementById("email").value.trim()||null,password:document.getElementById("pwd").value,role:document.getElementById("role").value,village:document.getElementById("village").value.trim()||null,district:document.getElementById("district").value.trim()||null,state:document.getElementById("state").value||null};
+  const cp=document.getElementById("cpwd").value;
+  if(!data.full_name||!data.phone||!data.password){err.textContent="Fill in all required fields.";err.style.display="block";return}
+  if(data.password!==cp){err.textContent="Passwords do not match.";err.style.display="block";return}
+  btn.innerHTML='<span class="loader"></span> Creating…';btn.disabled=true;
+  try{
+    const res=await API.register(data);setAuth(res.access_token,res.refresh_token,res.user);
+    showToast("Welcome to AgriMarket! 🎉","success");
+    setTimeout(()=>{window.location.href=res.user.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html"},800);
+  }catch(e){err.textContent=e.message;err.style.display="block";btn.innerHTML="Create Account";btn.disabled=false}
+}
+</script></body></html>

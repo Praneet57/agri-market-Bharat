@@ -1,0 +1,178 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Buyer Dashboard – AgriMarket</title><link rel="stylesheet" href="/static/css/style.css"/></head>
+<body>
+<nav class="navbar"><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket</a>
+  <div style="display:flex;align-items:center;gap:.75rem"><div class="avatar" id="nav-avatar">B</div><span style="color:white;font-size:.9rem" id="nav-name"></span><a href="#" onclick="logout()" style="color:rgba(255,255,255,0.7);font-size:.85rem;text-decoration:none">Logout</a></div>
+</nav>
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <a class="sidebar-item active" id="n-overview" onclick="show('overview')"><span class="icon">📊</span> Overview</a>
+    <a class="sidebar-item" id="n-market" onclick="show('market')"><span class="icon">🛒</span> Marketplace</a>
+    <a class="sidebar-item" id="n-demands" onclick="show('demands')"><span class="icon">📢</span> My Demands</a>
+    <a class="sidebar-item" id="n-post" onclick="show('post')"><span class="icon">➕</span> Post Demand</a>
+    <a class="sidebar-item" id="n-orders" onclick="show('orders')"><span class="icon">📦</span> My Orders</a>
+    <a class="sidebar-item" id="n-chat" onclick="show('chat')"><span class="icon">💬</span> Messages</a>
+    <a class="sidebar-item" id="n-profile" onclick="show('profile')"><span class="icon">👤</span> Profile</a>
+  </aside>
+  <main class="main-content">
+    <section id="s-overview">
+      <h2 class="section-title">🏠 Buyer Overview</h2>
+      <div class="stats-grid"><div class="stat-card"><div class="stat-value" id="st-d">-</div><div class="stat-label">Active Demands</div></div><div class="stat-card"><div class="stat-value" id="st-o">-</div><div class="stat-label">Orders</div></div><div class="stat-card"><div class="stat-value" id="st-pend">-</div><div class="stat-label">Pending</div></div><div class="stat-card"><div class="stat-value" id="st-spent">-</div><div class="stat-label">Total Spent</div></div></div>
+      <div class="grid-2"><div><h3 style="margin-bottom:1rem;font-size:1.1rem">Recent Orders</h3><div id="rov"></div></div><div><h3 style="margin-bottom:1rem;font-size:1.1rem">Fresh Products</h3><div id="pov"></div></div></div>
+    </section>
+    <section id="s-market" style="display:none">
+      <h2 class="section-title">🛒 Marketplace</h2>
+      <div class="card" style="margin-bottom:1.5rem"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
+        <div><label class="text-sm" style="display:block;margin-bottom:.3rem">Category</label><select id="fc" class="form-control" style="width:130px"><option value="">All</option><option>Fruits</option><option>Vegetables</option><option>Grains</option><option>Pulses</option><option>Spices</option></select></div>
+        <div><label class="text-sm" style="display:block;margin-bottom:.3rem">District</label><input type="text" id="fd" class="form-control" placeholder="District" style="width:140px"/></div>
+        <div><label class="text-sm" style="display:block;margin-bottom:.3rem">Max ₹/kg</label><input type="number" id="fp" class="form-control" placeholder="No limit" style="width:110px"/></div>
+        <div style="display:flex;align-items:center;gap:.4rem;padding-bottom:.1rem"><input type="checkbox" id="fo"/><label class="text-sm">🌿 Organic only</label></div>
+        <button class="btn btn-green" onclick="loadMarket()">🔍 Search</button>
+        <button class="btn btn-gray" onclick="clearF()">Clear</button>
+      </div></div>
+      <div class="grid-2" id="market-grid"></div>
+    </section>
+    <section id="s-demands" style="display:none">
+      <div class="row-between mb-2"><h2 class="section-title" style="margin:0">📢 My Demands</h2><button class="btn btn-green" onclick="show('post')">+ Post Demand</button></div>
+      <div class="grid-2" id="my-demands"></div>
+    </section>
+    <section id="s-post" style="display:none">
+      <h2 class="section-title">📢 Post a Demand</h2>
+      <div class="card" style="max-width:600px"><div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+          <div class="form-group" style="grid-column:1/-1"><label>What do you need? *</label><input type="text" id="d-name" class="form-control" placeholder="e.g. Fresh Tomatoes"/></div>
+          <div class="form-group"><label>Category *</label><select id="d-cat" class="form-control"><option value="">Select</option><option>Fruits</option><option>Vegetables</option><option>Grains</option><option>Pulses</option><option>Spices</option><option>Other</option></select></div>
+          <div class="form-group"><label>District</label><input type="text" id="d-dist" class="form-control" placeholder="Delivery district"/></div>
+          <div class="form-group"><label>Quantity (kg) *</label><input type="number" id="d-qty" class="form-control" placeholder="200"/></div>
+          <div class="form-group"><label>Max Price/kg (₹) *</label><input type="number" id="d-price" class="form-control" placeholder="60"/></div>
+          <div class="form-group"><label>Required By</label><input type="date" id="d-req" class="form-control"/></div>
+          <div class="form-group" style="grid-column:1/-1"><label>Delivery Address</label><textarea id="d-addr" class="form-control" rows="2" placeholder="Full delivery address…"></textarea></div>
+        </div>
+        <button class="btn btn-green" id="post-btn" onclick="postDemand()">Post Demand</button>
+      </div></div>
+    </section>
+    <section id="s-orders" style="display:none"><h2 class="section-title">📦 My Orders</h2><div id="orders-list"></div></section>
+    <section id="s-chat" style="display:none"><h2 class="section-title">💬 Messages</h2><div id="chat-rooms"></div></section>
+    <section id="s-profile" style="display:none">
+      <h2 class="section-title">👤 Profile</h2>
+      <div class="card" style="max-width:500px"><div class="card-body">
+        <div class="form-group"><label>Full Name</label><input type="text" id="pf-name" class="form-control"/></div>
+        <div class="form-group"><label>Email</label><input type="email" id="pf-email" class="form-control"/></div>
+        <div class="form-group"><label>District</label><input type="text" id="pf-dist" class="form-control"/></div>
+        <button class="btn btn-green" onclick="saveProfile()">Save Changes</button>
+      </div></div>
+    </section>
+  </main>
+</div>
+<!-- Order Modal -->
+<div id="order-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:420px;margin:1rem">
+    <div class="card-header"><strong id="modal-title">Place Order</strong><button onclick="closeModal()" style="background:none;border:none;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div class="card-body">
+      <div class="form-group"><label>Quantity (kg) *</label><input type="number" id="m-qty" class="form-control" min="1" oninput="recalc()"/></div>
+      <div class="form-group"><label>Price/kg</label><input type="number" id="m-price" class="form-control" readonly style="background:#f5f5f5"/></div>
+      <div class="form-group"><label>Delivery Address</label><textarea id="m-addr" class="form-control" rows="2" placeholder="Your delivery address…"></textarea></div>
+      <div style="background:var(--green-pale);border-radius:8px;padding:.85rem;margin-bottom:1rem">
+        <div class="row-between"><span class="text-sm">Total</span><strong id="m-total">₹0</strong></div>
+        <div class="row-between"><span class="text-sm text-muted">Fee (2%)</span><span class="text-sm" id="m-fee">₹0</span></div>
+      </div>
+      <button class="btn btn-green btn-full" id="place-btn" onclick="placeOrder()">🛒 Place Order</button>
+    </div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+if(!requireAuth())throw new Error();
+const user=getUser();
+document.getElementById("nav-avatar").textContent=user.full_name[0].toUpperCase();
+document.getElementById("nav-name").textContent=user.full_name.split(" ")[0];
+let curP=null;
+const emojis={rice:"🌾",wheat:"🌾",banana:"🍌",tomato:"🍅",onion:"🧅",potato:"🥔",mango:"🥭",spice:"🌶",corn:"🌽"};
+const ge=n=>{const k=Object.keys(emojis).find(k=>n.toLowerCase().includes(k));return emojis[k]||"🌿"};
+
+function show(name){
+  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
+  document.querySelectorAll(".sidebar-item").forEach(a=>a.classList.remove("active"));
+  document.getElementById("s-"+name).style.display="block";
+  const n=document.getElementById("n-"+name);if(n)n.classList.add("active");
+  if(name==="market")loadMarket();if(name==="demands")loadMyDemands();
+  if(name==="orders")loadOrders();if(name==="chat")loadChatRooms();
+  if(name==="profile")loadProfile();if(name==="overview")loadOverview();
+}
+
+async function loadOverview(){
+  try{
+    const[ds,os,ps]=await Promise.all([API.myDemands(),API.listOrders(),API.listProducts({limit:4})]);
+    document.getElementById("st-d").textContent=ds.filter(d=>d.status==="open").length;
+    document.getElementById("st-o").textContent=os.length;
+    document.getElementById("st-pend").textContent=os.filter(o=>o.status==="pending").length;
+    document.getElementById("st-spent").textContent=formatCurrency(os.filter(o=>["paid","completed"].includes(o.status)).reduce((s,o)=>s+o.total_amount,0));
+    document.getElementById("rov").innerHTML=os.length?os.slice(0,4).map(o=>`<div class="card" style="margin-bottom:.75rem"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatCurrency(o.total_amount)}</div></div>${statusBadge(o.status)}</div></div>`).join(""):'<div class="empty-state"><div class="icon">📦</div><p>No orders yet. <a href="#" onclick="show(\'market\')">Browse marketplace</a></p></div>';
+    document.getElementById("pov").innerHTML=ps.length?ps.map(p=>`<div class="card" style="margin-bottom:.75rem;cursor:pointer" onclick='openModal(${JSON.stringify(p).replace(/'/g,"&#39;")});show("market")'><div class="card-body" style="padding:.85rem 1rem"><div class="row-between"><strong>${p.name}</strong><span class="price-tag" style="font-size:1rem">${formatCurrency(p.price_per_kg)}/kg</span></div><div class="text-sm text-muted">${p.quantity_kg}kg ${p.district?"· "+p.district:""}</div></div></div>`).join(""):'<div class="empty-state"><div class="icon">🛒</div><p>No products</p></div>';
+  }catch(e){console.error(e)}
+}
+
+async function loadMarket(){
+  const g=document.getElementById("market-grid");
+  g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+  try{
+    const params={limit:40};
+    const c=document.getElementById("fc").value,d=document.getElementById("fd").value.trim(),p=document.getElementById("fp").value,org=document.getElementById("fo").checked;
+    if(c)params.category=c;if(d)params.district=d;if(p)params.max_price=p;if(org)params.is_organic=true;
+    const ps=await API.listProducts(params);
+    if(!ps.length){g.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="icon">🛒</div><p>No products match your filters</p></div>';return}
+    g.innerHTML=ps.map(p=>`<div class="card product-card"><div class="product-img">${ge(p.name)}</div><div class="card-body"><div class="row-between mb-2"><strong style="font-size:1.05rem">${p.name}</strong>${p.is_organic?'<span class="product-badge badge-organic">🌿 Organic</span>':''}</div><div class="price-tag">${formatCurrency(p.price_per_kg)}/kg</div><div class="text-sm text-muted mt-1">📦 ${p.quantity_kg}kg · Min ${p.min_order_kg}kg</div>${p.district?`<div class="text-sm text-muted">📍 ${p.district}</div>`:''}</div><div class="card-footer"><button class="btn btn-green btn-sm" onclick='openModal(${JSON.stringify(p).replace(/'/g,"&#39;")})'>🛒 Order Now</button></div></div>`).join("");
+  }catch(e){g.innerHTML=`<div style="grid-column:1/-1;color:red">${e.message}</div>`}
+}
+
+function clearF(){["fc","fd","fp"].forEach(id=>document.getElementById(id).value="");document.getElementById("fo").checked=false;loadMarket()}
+
+function openModal(p){curP=typeof p==="string"?JSON.parse(p):p;document.getElementById("modal-title").textContent="Order: "+curP.name;document.getElementById("m-qty").value=curP.min_order_kg;document.getElementById("m-price").value=curP.price_per_kg;recalc();document.getElementById("order-modal").style.display="flex"}
+function closeModal(){document.getElementById("order-modal").style.display="none"}
+function recalc(){const q=parseFloat(document.getElementById("m-qty").value)||0,t=q*(curP?.price_per_kg||0);document.getElementById("m-total").textContent=formatCurrency(t);document.getElementById("m-fee").textContent=formatCurrency(t*.02)}
+async function placeOrder(){
+  const btn=document.getElementById("place-btn"),qty=parseFloat(document.getElementById("m-qty").value);
+  if(!qty||qty<(curP?.min_order_kg||1)){showToast(`Min order: ${curP?.min_order_kg||1}kg`,"error");return}
+  btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  try{await API.createOrder({product_id:curP.id,farmer_id:curP.farmer_id,quantity_kg:qty,price_per_kg:curP.price_per_kg,delivery_address:document.getElementById("m-addr").value});closeModal();showToast("Order placed! 🎉","success");show("orders")}
+  catch(e){showToast(e.message,"error")}finally{btn.innerHTML="🛒 Place Order";btn.disabled=false}
+}
+
+async function loadMyDemands(){
+  const g=document.getElementById("my-demands");
+  g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+  try{const ds=await API.myDemands();g.innerHTML=ds.length?ds.map(d=>`<div class="card"><div class="card-body"><div class="row-between mb-2"><strong>${d.product_name}</strong>${statusBadge(d.status)}</div><div style="font-size:1.1rem;font-weight:700;color:var(--amber)">Max ${formatCurrency(d.max_price_per_kg)}/kg</div><div class="text-sm text-muted mt-1">📦 ${d.quantity_kg}kg needed</div>${d.district?`<div class="text-sm text-muted">📍 ${d.district}</div>`:''}</div></div>`).join(""):'<div class="empty-state" style="grid-column:1/-1"><div class="icon">📢</div><p>No demands posted</p><button class="btn btn-green mt-2" onclick="show(\'post\')">+ Post a Demand</button></div>'}catch(e){}
+}
+
+async function postDemand(){
+  const btn=document.getElementById("post-btn");
+  const data={product_name:document.getElementById("d-name").value.trim(),category:document.getElementById("d-cat").value,quantity_kg:parseFloat(document.getElementById("d-qty").value),max_price_per_kg:parseFloat(document.getElementById("d-price").value),district:document.getElementById("d-dist").value||null,delivery_address:document.getElementById("d-addr").value||null,required_by:document.getElementById("d-req").value||null};
+  if(!data.product_name||!data.category||!data.quantity_kg||!data.max_price_per_kg){showToast("Fill in all required fields","error");return}
+  btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
+  try{await API.createDemand(data);showToast("Demand posted! 📢","success");show("demands")}catch(e){showToast(e.message,"error")}finally{btn.innerHTML="Post Demand";btn.disabled=false}
+}
+
+async function loadOrders(){
+  const el=document.getElementById("orders-list");
+  el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+  try{
+    const os=await API.listOrders();
+    if(!os.length){el.innerHTML='<div class="empty-state"><div class="icon">📦</div><p>No orders yet. <a href="#" onclick="show(\'market\')">Browse marketplace →</a></p></div>';return}
+    el.innerHTML=os.map(o=>`<div class="card" style="margin-bottom:1rem"><div class="card-header"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatDate(o.created_at)}</div></div>${statusBadge(o.status)}</div><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem"><div><div class="text-sm text-muted">Qty</div><strong>${o.quantity_kg}kg</strong></div><div><div class="text-sm text-muted">Rate</div><strong>${formatCurrency(o.price_per_kg)}/kg</strong></div><div><div class="text-sm text-muted">You Pay</div><strong>${formatCurrency(o.total_amount)}</strong></div></div><div class="card-footer">${o.status==="accepted"?`<button class="btn btn-green btn-sm" onclick="payOrder(${o.id})">💳 Pay Now</button>`:''} ${o.status==="delivered"?`<button class="btn btn-green btn-sm" onclick="confirmReceipt(${o.id})">✅ Confirm Receipt</button>`:''} ${o.status==="pending"?`<button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">Cancel</button>`:''} <a href="/chat.html?order_id=${o.id}" class="btn btn-outline-green btn-sm">💬 Chat</a><button class="btn btn-gray btn-sm" onclick="genPDF(${o.id})">📄 Agreement</button>${o.status==="completed"?`<button class="btn btn-amber btn-sm" onclick="rateOrder(${o.id},${o.farmer_id})">⭐ Rate Farmer</button>`:''}</div></div>`).join("");
+  }catch(e){el.innerHTML=`<div style="color:red">${e.message}</div>`}
+}
+
+async function payOrder(id){await initiatePayment(id,()=>loadOrders())}
+async function confirmReceipt(id){if(!confirm("Confirm receipt & release payment to farmer?"))return;try{await API.releaseEscrow(id);showToast("Payment released! ✅","success");loadOrders()}catch(e){showToast(e.message,"error")}}
+async function cancelOrder(id){if(!confirm("Cancel this order?"))return;try{await API.updateOrderStatus(id,"cancelled");showToast("Order cancelled","info");loadOrders()}catch(e){showToast(e.message,"error")}}
+async function genPDF(id){try{await API.generateAgreement(id);showToast("Agreement ready!","success");setTimeout(()=>window.open(`/api/v1/agreements/${id}/download`,"_blank"),500)}catch(e){showToast(e.message,"error")}}
+async function rateOrder(order_id,farmer_id){const score=prompt("Rate this farmer (1-5 stars):","5");if(!score)return;const comment=prompt("Comment (optional):","");try{await API.createRating({order_id,rated_id:farmer_id,score:parseInt(score),comment:comment||null});showToast("Rating submitted! ⭐","success")}catch(e){showToast(e.message,"error")}}
+
+async function loadChatRooms(){
+  const el=document.getElementById("chat-rooms");
+  try{const rs=await API.myChatRooms();el.innerHTML=rs.length?rs.map(r=>`<a href="/chat.html?order_id=${r.order_id}" class="card" style="display:block;margin-bottom:.75rem;text-decoration:none;color:inherit"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center"><div><strong>Order ${r.order_number}</strong><div class="text-sm text-muted">${statusBadge(r.status)}</div></div><div style="display:flex;align-items:center;gap:.5rem">${r.is_online?'<span class="online-dot"></span><span class="text-sm" style="color:#4caf50">Online</span>':'<span class="text-sm text-muted">Offline</span>'} →</div></div></a>`).join(""):'<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>'}catch(e){}
+}
+async function loadProfile(){try{const u=await API.me();document.getElementById("pf-name").value=u.full_name||"";document.getElementById("pf-email").value=u.email||"";document.getElementById("pf-dist").value=u.district||""}catch(e){}}
+async function saveProfile(){try{await API.updateMe({full_name:document.getElementById("pf-name").value,email:document.getElementById("pf-email").value||null,district:document.getElementById("pf-dist").value});showToast("Profile saved! ✅","success")}catch(e){showToast(e.message,"error")}}
+
+loadOverview();
+</script></body></html>

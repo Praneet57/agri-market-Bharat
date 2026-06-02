@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: agri-marketplace-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agri-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: agri-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: agri-redis
+          type: redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: agri-redis
+          type: redis
+          property: connectionString
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "*"
+  - type: worker
+    name: agri-celery-worker
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    startCommand: celery -A app.workers.tasks.celery_app worker --loglevel=info --concurrency=1
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agri-postgres
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: agri-redis
+          type: redis
+          property: connectionString
+databases:
+  - name: agri-postgres
+    databaseName: agridb
+    user: agriuser
+    plan: free
+  - type: redis
+    name: agri-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
