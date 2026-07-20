@@ -13,12 +13,17 @@
     <a class="sidebar-item" id="n-chat" onclick="show('chat')"><span class="icon">💬</span> Messages</a>
     <a class="sidebar-item" id="n-profile" onclick="show('profile')"><span class="icon">👤</span> Profile</a>
   </aside>
+
   <main class="main-content">
+
+
+
     <section id="s-overview">
       <h2 class="section-title">🏠 Buyer Overview</h2>
       <div class="stats-grid"><div class="stat-card"><div class="stat-value" id="st-d">-</div><div class="stat-label">Active Demands</div></div><div class="stat-card"><div class="stat-value" id="st-o">-</div><div class="stat-label">Orders</div></div><div class="stat-card"><div class="stat-value" id="st-pend">-</div><div class="stat-label">Pending</div></div><div class="stat-card"><div class="stat-value" id="st-spent">-</div><div class="stat-label">Total Spent</div></div></div>
       <div class="grid-2"><div><h3 style="margin-bottom:1rem;font-size:1.1rem">Recent Orders</h3><div id="rov"></div></div><div><h3 style="margin-bottom:1rem;font-size:1.1rem">Fresh Products</h3><div id="pov"></div></div></div>
     </section>
+
     <section id="s-market" style="display:none">
       <h2 class="section-title">🛒 Marketplace</h2>
       <div class="card" style="margin-bottom:1.5rem"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
@@ -31,10 +36,12 @@
       </div></div>
       <div class="grid-2" id="market-grid"></div>
     </section>
+
     <section id="s-demands" style="display:none">
       <div class="row-between mb-2"><h2 class="section-title" style="margin:0">📢 My Demands</h2><button class="btn btn-green" onclick="show('post')">+ Post Demand</button></div>
       <div class="grid-2" id="my-demands"></div>
     </section>
+
     <section id="s-post" style="display:none">
       <h2 class="section-title">📢 Post a Demand</h2>
       <div class="card" style="max-width:600px"><div class="card-body">
@@ -50,10 +57,19 @@
         <button class="btn btn-green" id="post-btn" onclick="postDemand()">Post Demand</button>
       </div></div>
     </section>
+
     <section id="s-orders" style="display:none"><h2 class="section-title">📦 My Orders</h2><div id="orders-list"></div></section>
     <section id="s-chat" style="display:none"><h2 class="section-title">💬 Messages</h2><div id="chat-rooms"></div></section>
+
     <section id="s-profile" style="display:none">
       <h2 class="section-title">👤 Profile</h2>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-body" style="display:flex;gap:1rem;flex-wrap:wrap">
+          <div><strong id="profile-rating">⭐ -</strong><div class="text-sm text-muted">Your rating</div></div>
+          <div><strong id="profile-reviews">0 reviews</strong><div class="text-sm text-muted">Received</div></div>
+          <div><strong id="profile-exchanges">0 exchanges</strong><div class="text-sm text-muted">Completed</div></div>
+        </div>
+      </div>
       <div class="card" style="max-width:500px"><div class="card-body">
         <div class="form-group"><label>Full Name</label><input type="text" id="pf-name" class="form-control"/></div>
         <div class="form-group"><label>Email</label><input type="email" id="pf-email" class="form-control"/></div>
@@ -61,8 +77,10 @@
         <button class="btn btn-green" onclick="saveProfile()">Save Changes</button>
       </div></div>
     </section>
+
   </main>
 </div>
+
 <!-- Order Modal -->
 <div id="order-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center">
   <div class="card" style="width:100%;max-width:420px;margin:1rem">
@@ -79,26 +97,97 @@
     </div>
   </div>
 </div>
+
+<!-- Farmer Modal -->
+<div id="farmer-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:520px;margin:1rem">
+    <div class="card-header"><strong id="farmer-modal-title">Farmer</strong><button onclick="closeFarmerModal()" style="background:none;border:none;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div class="card-body" id="farmer-modal-body">
+      <div style="display:flex;gap:1rem;align-items:center">
+        <div class="avatar" id="farmer-avatar" style="width:64px;height:64px;font-size:1.6rem">F</div>
+        <div>
+          <div id="farmer-name" style="font-size:1.05rem;font-weight:700">Name</div>
+          <div id="farmer-role" class="text-sm text-muted">Farmer</div>
+          <div style="margin-top:.4rem">⭐ <span id="farmer-rating">-</span> · <span id="farmer-reviews">0</span> reviews · <span id="farmer-exchanges">0</span> exchanges</div>
+        </div>
+      </div>
+      <div id="farmer-bio" style="margin-top:1rem;color:var(--muted)"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/static/js/api.js"></script>
 <script>
-if(!requireAuth())throw new Error();
+if(!requireAuth()){ /* redirected to login */ }
 const user=getUser();
 document.getElementById("nav-avatar").textContent=user.full_name[0].toUpperCase();
 document.getElementById("nav-name").textContent=user.full_name.split(" ")[0];
 let curP=null;
-const emojis={rice:"🌾",wheat:"🌾",banana:"🍌",tomato:"🍅",onion:"🧅",potato:"🥔",mango:"🥭",spice:"🌶",corn:"🌽"};
-const ge=n=>{const k=Object.keys(emojis).find(k=>n.toLowerCase().includes(k));return emojis[k]||"🌿"};
+// (Removed emoji-based product placeholders; use uploaded images instead)
+const ge=n=>"";
 
+
+// ── Tab switching ─────────────────────────────────────────────────────────
 function show(name){
+
   document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
   document.querySelectorAll(".sidebar-item").forEach(a=>a.classList.remove("active"));
   document.getElementById("s-"+name).style.display="block";
   const n=document.getElementById("n-"+name);if(n)n.classList.add("active");
   if(name==="market")loadMarket();if(name==="demands")loadMyDemands();
   if(name==="orders")loadOrders();if(name==="chat")loadChatRooms();
-  if(name==="profile")loadProfile();if(name==="overview")loadOverview();
+  if(name==="profile"){loadProfile();loadUserProfileStats();}
+  if(name==="overview")loadOverview();
 }
 
+// ── Farmer profile navigation ─────────────────────────────────────────────
+function viewFarmerProfile(id){
+  console.log('viewFarmerProfile called with id:', id);
+  if(!id){
+    showToast('Farmer ID not found','error');
+    return;
+  }
+  try{
+    sessionStorage.setItem('previousPage', window.location.href);
+    let ov = document.getElementById('transition-overlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'transition-overlay';
+      ov.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(255,255,255,0.92);z-index:1200;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+      ov.innerHTML = `<div style="text-align:center;color:#1a5c2a;font-weight:700"><div style="font-size:1.2rem">Opening profile…</div><div style="margin-top:.6rem"><span class="loader"></span></div></div>`;
+      document.body.appendChild(ov);
+    }
+    ov.style.display = 'flex';
+    const profileUrl = `/profile.html?user_id=${id}`;
+    setTimeout(()=>{
+      window.history.pushState({farmer_id: id}, `Farmer ${id}`, profileUrl);
+      window.location.href = profileUrl;
+    }, 350);
+  }catch(e){
+    console.error('Error in viewFarmerProfile:', e);
+    window.location.href = `/profile.html?user_id=${id}`;
+  }
+}
+
+function closeFarmerModal(){
+  document.getElementById('farmer-modal').style.display='none';
+}
+
+async function showFarmer(id){
+  try{
+    const f = await API.getUser(id);
+    document.getElementById('farmer-name').textContent = f.full_name || 'Farmer';
+    document.getElementById('farmer-avatar').textContent = (f.full_name||'F')[0].toUpperCase();
+    document.getElementById('farmer-rating').textContent = f.average_rating ? f.average_rating.toFixed(1) : '-';
+    document.getElementById('farmer-reviews').textContent = f.review_count || 0;
+    document.getElementById('farmer-exchanges').textContent = f.completed_exchanges || 0;
+    document.getElementById('farmer-bio').textContent = f.bio || '';
+    document.getElementById('farmer-modal').style.display = 'flex';
+  }catch(e){showToast(e.message||'Unable to load farmer','error');}
+}
+
+// ── Overview tab ──────────────────────────────────────────────────────────
 async function loadOverview(){
   try{
     const[ds,os,ps]=await Promise.all([API.myDemands(),API.listOrders(),API.listProducts({limit:4})]);
@@ -107,21 +196,107 @@ async function loadOverview(){
     document.getElementById("st-pend").textContent=os.filter(o=>o.status==="pending").length;
     document.getElementById("st-spent").textContent=formatCurrency(os.filter(o=>["paid","completed"].includes(o.status)).reduce((s,o)=>s+o.total_amount,0));
     document.getElementById("rov").innerHTML=os.length?os.slice(0,4).map(o=>`<div class="card" style="margin-bottom:.75rem"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center;padding:.85rem 1rem"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatCurrency(o.total_amount)}</div></div>${statusBadge(o.status)}</div></div>`).join(""):'<div class="empty-state"><div class="icon">📦</div><p>No orders yet. <a href="#" onclick="show(\'market\')">Browse marketplace</a></p></div>';
-    document.getElementById("pov").innerHTML=ps.length?ps.map(p=>`<div class="card" style="margin-bottom:.75rem;cursor:pointer" onclick='openModal(${JSON.stringify(p).replace(/'/g,"&#39;")});show("market")'><div class="card-body" style="padding:.85rem 1rem"><div class="row-between"><strong>${p.name}</strong><span class="price-tag" style="font-size:1rem">${formatCurrency(p.price_per_kg)}/kg</span></div><div class="text-sm text-muted">${p.quantity_kg}kg ${p.district?"· "+p.district:""}</div></div></div>`).join(""):'<div class="empty-state"><div class="icon">🛒</div><p>No products</p></div>';
+    document.getElementById("pov").innerHTML=ps.length?ps.map(p=>`<div class="card" style="margin-bottom:.75rem;cursor:pointer" onclick='openModal(${JSON.stringify(p).replace(/'/g,"&#39;")});show("market")'><div class="card-body" style="padding:.85rem 1rem"><div class="row-between"><strong>${p.name}</strong><span class="price-tag" style="font-size:1rem">${formatCurrency(p.price_per_kg)}/kg</span></div><div class="text-sm text-muted">by <a href="javascript:void(0)" onclick="event.stopPropagation();viewFarmerProfile(${p.farmer_id})" style="cursor:pointer;color:#1a5c2a;font-weight:700;text-decoration:none">${p.farmer_name||'Seller'}</a> · ${p.quantity_kg}kg ${p.district?"· "+p.district:""}</div></div></div>`).join(""):'<div class="empty-state"><div class="icon">🛒</div><p>No products</p></div>';
   }catch(e){console.error(e)}
 }
 
-async function loadMarket(){
-  const g=document.getElementById("market-grid");
-  g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+// ── Profile stats ─────────────────────────────────────────────────────────
+async function loadUserProfileStats(){
   try{
-    const params={limit:40};
-    const c=document.getElementById("fc").value,d=document.getElementById("fd").value.trim(),p=document.getElementById("fp").value,org=document.getElementById("fo").checked;
-    if(c)params.category=c;if(d)params.district=d;if(p)params.max_price=p;if(org)params.is_organic=true;
-    const ps=await API.listProducts(params);
-    if(!ps.length){g.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="icon">🛒</div><p>No products match your filters</p></div>';return}
-    g.innerHTML=ps.map(p=>`<div class="card product-card"><div class="product-img">${ge(p.name)}</div><div class="card-body"><div class="row-between mb-2"><strong style="font-size:1.05rem">${p.name}</strong>${p.is_organic?'<span class="product-badge badge-organic">🌿 Organic</span>':''}</div><div class="price-tag">${formatCurrency(p.price_per_kg)}/kg</div><div class="text-sm text-muted mt-1">📦 ${p.quantity_kg}kg · Min ${p.min_order_kg}kg</div>${p.district?`<div class="text-sm text-muted">📍 ${p.district}</div>`:''}</div><div class="card-footer"><button class="btn btn-green btn-sm" onclick='openModal(${JSON.stringify(p).replace(/'/g,"&#39;")})'>🛒 Order Now</button></div></div>`).join("");
-  }catch(e){g.innerHTML=`<div style="grid-column:1/-1;color:red">${e.message}</div>`}
+    const u=await API.me();
+    document.getElementById('profile-rating').textContent = `⭐ ${u.average_rating ? u.average_rating.toFixed(1) : '-'}`;
+    document.getElementById('profile-reviews').textContent = `${u.review_count || 0} reviews`;
+    document.getElementById('profile-exchanges').textContent = `${u.completed_exchanges || 0} exchanges`;
+  }catch(e){console.warn('Unable to load profile stats', e)}
+}
+
+// ── Marketplace ───────────────────────────────────────────────────────────
+async function loadMarket() {
+    const g = document.getElementById("market-grid");
+    g.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+
+    try {
+        const params = { limit: 40 };
+        const c   = document.getElementById("fc").value;
+        const d   = document.getElementById("fd").value.trim();
+        const p   = document.getElementById("fp").value;
+        const org = document.getElementById("fo").checked;
+
+        if (c)   params.category  = c;
+        if (d)   params.district  = d;
+        if (p)   params.max_price = p;
+        if (org) params.is_organic = true;
+
+        const ps = await API.listProducts(params);
+
+        if (!ps.length) {
+            g.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🛒</div><p>No products match your filters</p></div>';
+            return;
+        }
+
+        g.innerHTML = ps.map(p => `
+            <div class="card product-card">
+                <div class="product-img" style="position:relative;overflow:hidden;background:var(--green-pale);">
+                    ${p.image_url
+                        ? `<img src="${p.image_url}" alt="${p.name}"
+                                style="width:100%;height:160px;object-fit:cover;display:block;"
+                                onerror="const fb=this.parentElement.querySelector('.img-fallback'); if(fb){fb.style.display='flex'}; this.style.display='none';">
+                           <span class="img-fallback" style="font-size:3rem;width:100%;height:160px;display:none;align-items:center;justify-content:center;color:rgba(0,0,0,0.35);">No Image</span>`
+                        : `<span class="img-fallback" style="font-size:1.1rem;width:100%;height:160px;display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,0.35);">No Image</span>`
+                    }
+                    ${p.is_organic
+                        ? `<span style="position:absolute;top:8px;right:8px;background:var(--green);
+                                       color:white;padding:.2rem .6rem;border-radius:20px;
+                                       font-size:.75rem;font-weight:600;">
+                               🌿 Organic
+                           </span>`
+                        : ''
+                    }
+                </div>
+
+                <div class="card-body">
+                  <strong style="font-size:1.05rem;">${p.name}</strong>
+                  <div class="price-tag" style="margin:.4rem 0;">
+                    ${formatCurrency(p.price_per_kg)}/kg
+                  </div>
+                  <div style="display:flex;align-items:center;gap:.6rem;margin-top:.25rem">
+                    <div class="avatar" style="width:36px;height:36px;font-size:1rem;display:flex;align-items:center;justify-content:center;background:#e9f5ec;color:#1a5c2a">${(p.farmer_name||'F')[0]}</div>
+                    <div style="font-size:.9rem;">
+                      <a href="javascript:void(0)" onclick="viewFarmerProfile(${p.farmer_id})" style="color:#1a5c2a;text-decoration:none;font-weight:700;cursor:pointer">${p.farmer_name || 'Seller'}</a>
+                      <div style="font-size:.8rem;color:var(--muted)">⭐ ${p.average_rating ? p.average_rating.toFixed(1) : '—'} · ${p.review_count || 0} reviews</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:.2rem;font-size:.85rem;color:var(--muted);margin-top:.6rem;">
+                    <span>📦 ${p.quantity_kg} kg &nbsp;·&nbsp; Min ${p.min_order_kg} kg</span>
+                    ${p.district ? `<span>📍 ${p.district}</span>` : ''}
+                    <span>🕒 Posted ${timeAgo(p.created_at)}</span>
+                  </div>
+                </div>
+
+                <div class="card-footer">
+                    <button class="btn btn-green btn-sm"
+                        onclick='openModal(${JSON.stringify(p).replace(/'/g, "&#39;")})'>
+                        🛒 Order Now
+                    </button>
+                </div>
+            </div>
+        `).join("");
+
+    } catch(e) {
+        g.innerHTML = `<div style="grid-column:1/-1;color:red;text-align:center;padding:2rem;">${e.message}</div>`;
+    }
+}
+
+function timeAgo(dateStr) {
+    if (!dateStr) return "";
+    const seconds = Math.floor((new Date() - new Date(dateStr)) / 1000);
+    if (seconds < 60)       return "just now";
+    if (seconds < 3600)     return Math.floor(seconds / 60) + " min ago";
+    if (seconds < 86400)    return Math.floor(seconds / 3600) + " hr ago";
+    if (seconds < 604800)   return Math.floor(seconds / 86400) + " days ago";
+    if (seconds < 2592000)  return Math.floor(seconds / 604800) + " weeks ago";
+    if (seconds < 31536000) return Math.floor(seconds / 2592000) + " months ago";
+    return Math.floor(seconds / 31536000) + " years ago";
 }
 
 function clearF(){["fc","fd","fp"].forEach(id=>document.getElementById(id).value="");document.getElementById("fo").checked=false;loadMarket()}
@@ -137,6 +312,7 @@ async function placeOrder(){
   catch(e){showToast(e.message,"error")}finally{btn.innerHTML="🛒 Place Order";btn.disabled=false}
 }
 
+// ── Demands ───────────────────────────────────────────────────────────────
 async function loadMyDemands(){
   const g=document.getElementById("my-demands");
   g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
@@ -151,6 +327,7 @@ async function postDemand(){
   try{await API.createDemand(data);showToast("Demand posted! 📢","success");show("demands")}catch(e){showToast(e.message,"error")}finally{btn.innerHTML="Post Demand";btn.disabled=false}
 }
 
+// ── Orders ────────────────────────────────────────────────────────────────
 async function loadOrders(){
   const el=document.getElementById("orders-list");
   el.innerHTML='<div style="text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
@@ -167,12 +344,19 @@ async function cancelOrder(id){if(!confirm("Cancel this order?"))return;try{awai
 async function genPDF(id){try{await API.generateAgreement(id);showToast("Agreement ready!","success");setTimeout(()=>window.open(`/api/v1/agreements/${id}/download`,"_blank"),500)}catch(e){showToast(e.message,"error")}}
 async function rateOrder(order_id,farmer_id){const score=prompt("Rate this farmer (1-5 stars):","5");if(!score)return;const comment=prompt("Comment (optional):","");try{await API.createRating({order_id,rated_id:farmer_id,score:parseInt(score),comment:comment||null});showToast("Rating submitted! ⭐","success")}catch(e){showToast(e.message,"error")}}
 
+// ── Chat ──────────────────────────────────────────────────────────────────
 async function loadChatRooms(){
   const el=document.getElementById("chat-rooms");
   try{const rs=await API.myChatRooms();el.innerHTML=rs.length?rs.map(r=>`<a href="/chat.html?order_id=${r.order_id}" class="card" style="display:block;margin-bottom:.75rem;text-decoration:none;color:inherit"><div class="card-body" style="display:flex;justify-content:space-between;align-items:center"><div><strong>Order ${r.order_number}</strong><div class="text-sm text-muted">${statusBadge(r.status)}</div></div><div style="display:flex;align-items:center;gap:.5rem">${r.is_online?'<span class="online-dot"></span><span class="text-sm" style="color:#4caf50">Online</span>':'<span class="text-sm text-muted">Offline</span>'} →</div></div></a>`).join(""):'<div class="empty-state"><div class="icon">💬</div><p>No conversations yet</p></div>'}catch(e){}
 }
+
+// ── Profile ───────────────────────────────────────────────────────────────
 async function loadProfile(){try{const u=await API.me();document.getElementById("pf-name").value=u.full_name||"";document.getElementById("pf-email").value=u.email||"";document.getElementById("pf-dist").value=u.district||""}catch(e){}}
 async function saveProfile(){try{await API.updateMe({full_name:document.getElementById("pf-name").value,email:document.getElementById("pf-email").value||null,district:document.getElementById("pf-dist").value});showToast("Profile saved! ✅","success")}catch(e){showToast(e.message,"error")}}
 
+// ── Init ──────────────────────────────────────────────────────────────────
 loadOverview();
-</script></body></html>
+loadUserProfileStats();
+</script>
+</body>
+</html>

@@ -35,6 +35,8 @@
 .stat-value{font-size:2rem;font-weight:700;color:var(--green)}.stat-label{font-size:.82rem;color:var(--muted);margin-top:.25rem}
 .grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.25rem}
 .grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
+.chart-wrap{height:260px;min-height:220px}
+.list-simple{display:flex;flex-direction:column}
 .chat-container{display:flex;flex-direction:column;height:calc(100vh - 60px)}
 .chat-header{padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:white;display:flex;align-items:center;justify-content:space-between}
 .chat-messages{flex:1;overflow-y:auto;padding:1.5rem;display:flex;flex-direction:column;gap:.75rem}

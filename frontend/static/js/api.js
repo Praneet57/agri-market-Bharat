@@ -11,15 +11,44 @@ async function apiFetch(path,options={}){
   const token=getToken();
   const headers={"Content-Type":"application/json",...(options.headers||{})};
   if(token)headers["Authorization"]=`Bearer ${token}`;
+
   const res=await fetch(API_BASE+path,{...options,headers});
+
   if(res.status===401){
     const rt=localStorage.getItem("refresh_token");
     if(rt){
-      const rr=await fetch(API_BASE+"/auth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});
-      if(rr.ok){const rd=await rr.json();localStorage.setItem("access_token",rd.access_token);headers["Authorization"]=`Bearer ${rd.access_token}`;const retry=await fetch(API_BASE+path,{...options,headers});if(!retry.ok){const e=await retry.json().catch(()=>({}));throw new Error(e.detail||"Request failed")}if(retry.status===204)return null;return retry.json()}}
-    clearAuth();window.location.href="/login.html";return;
+      try{
+        const rr=await fetch(API_BASE+"/auth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});
+        if(rr.ok){
+          const rd=await rr.json();
+          localStorage.setItem("access_token",rd.access_token);
+          headers["Authorization"]=`Bearer ${rd.access_token}`;
+
+          const retry=await fetch(API_BASE+path,{...options,headers});
+          if(!retry.ok){
+            const e=await retry.json().catch(()=>({}));
+            throw new Error(e.detail||`Error ${retry.status}`);
+          }
+          if(retry.status===204)return null;
+          return retry.json();
+        }else{
+          const e=await rr.json().catch(()=>({}));
+          throw new Error(e.detail||`Refresh failed (${rr.status})`);
+        }
+      }catch(e){
+        showToast(e.message||"Session expired. Please login again","error");
+      }
+    }
+
+    clearAuth();
+    window.location.href="/login.html";
+    return;
   }
-  if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.detail||`Error ${res.status}`)}
+
+  if(!res.ok){
+    const err=await res.json().catch(()=>({}));
+    throw new Error(err.detail||`Error ${res.status}`)
+  }
   if(res.status===204)return null;
   return res.json();
 }
@@ -40,6 +69,16 @@ const API={
   sessions:()=>apiFetch("/auth/sessions"),
   getUser:(id)=>apiFetch(`/auth/users/${id}`),
   createProduct:(d)=>apiFetch("/products/",{method:"POST",body:JSON.stringify(d)}),
+  uploadProductImage: async (file)=>{
+    const token=getToken();
+    const form=new FormData();
+    form.append("file",file);
+    const headers={};
+    if(token)headers["Authorization"]=`Bearer ${token}`;
+    const res=await fetch(API_BASE+"/products/upload-image",{method:"POST",headers,body:form});
+    if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.detail||`Error ${res.status}`)}
+    return res.json();
+  },
   listProducts:(p={})=>apiFetch("/products/?"+new URLSearchParams(p)),
   myProducts:()=>apiFetch("/products/my"),
   getProduct:(id)=>apiFetch(`/products/${id}`),
@@ -63,7 +102,31 @@ const API={
   matchForProduct:(id)=>apiFetch(`/match/demands-for-product/${id}`),
   createRating:(d)=>apiFetch("/ratings",{method:"POST",body:JSON.stringify(d)}),
   adminStats:()=>apiFetch("/admin/stats"),
+  adminKpis:(range="today")=>apiFetch(`/admin/kpis?range=${encodeURIComponent(range)}`),
+  adminRevenueSeries:(days=14)=>apiFetch(`/admin/analytics/revenue-series?days=${encodeURIComponent(days)}`),
+  adminOrdersSeries:(days=14,status="")=>{
+    const p=new URLSearchParams({days});
+    if(status) p.set('status',status);
+    return apiFetch(`/admin/analytics/orders-series?${p.toString()}`);
+  },
+  adminTopProducts:(limit=10)=>apiFetch(`/admin/analytics/top-products?limit=${encodeURIComponent(limit)}`),
+  adminSalesByCategory:(limit=10)=>apiFetch(`/admin/analytics/sales-by-category?limit=${encodeURIComponent(limit)}`),
+  adminSalesByPaymentMethod:()=>apiFetch(`/admin/analytics/sales-by-payment-method`),
+  adminListOrders:(p={})=>{
+    const params=new URLSearchParams(p);
+    return apiFetch(`/admin/orders?${params.toString()}`);
+  },
+  // Backward-compat aliases (some pages may reference these)
+  adminOrders: (p={})=>API.adminListOrders(p),
+
+  adminListProducts:(p={})=>{
+
+    const params=new URLSearchParams(p);
+    // p may contain active:boolean; URLSearchParams will stringify it.
+    return apiFetch(`/admin/products?${params.toString()}`);
+  },
 };
+
 
 function showToast(msg,type="success"){
   let c=document.getElementById("toast-container");
@@ -80,7 +143,7 @@ function formatCurrency(n){return"₹"+Number(n).toLocaleString("en-IN",{minimum
 async function initiatePayment(order_id,onSuccess){
   try{
     const pd=await API.createPayment(order_id);
-    if(typeof Razorpay==="undefined"){
+    if(typeof Razorpay==="undefined" || pd.razorpay_order_id.startsWith("order_demo_")){
       showToast("Demo mode: simulating payment","info");
       await API.verifyPayment({razorpay_order_id:pd.razorpay_order_id,razorpay_payment_id:"demo_pay_"+Date.now(),razorpay_signature:"demo_sig"});
       showToast("Payment successful! 🎉","success");onSuccess&&onSuccess();return;
@@ -100,3 +163,4 @@ function renderNavbar(){
   if(u){u.style.display="flex";const n=document.getElementById("nav-username");const a=document.getElementById("nav-avatar");if(n)n.textContent=user.full_name.split(" ")[0];if(a)a.textContent=user.full_name[0].toUpperCase()}
 }
 document.addEventListener("DOMContentLoaded",renderNavbar);
+

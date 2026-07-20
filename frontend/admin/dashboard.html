@@ -12,31 +12,167 @@
   </aside>
   <main class="main-content">
     <section id="s-overview">
-      <h2 class="section-title">📊 Platform Overview</h2>
-      <div class="stats-grid"><div class="stat-card"><div class="stat-value" id="su">…</div><div class="stat-label">Total Users</div></div><div class="stat-card"><div class="stat-value" id="sf">…</div><div class="stat-label">Farmers</div></div><div class="stat-card"><div class="stat-value" id="sb">…</div><div class="stat-label">Buyers</div></div><div class="stat-card"><div class="stat-value" id="so">…</div><div class="stat-label">Orders</div></div><div class="stat-card"><div class="stat-value" id="sgmv">…</div><div class="stat-label">GMV</div></div><div class="stat-card"><div class="stat-value" id="srev">…</div><div class="stat-label">Revenue</div></div></div>
-      <div id="health-box" class="card" style="max-width:400px"><div class="card-header"><strong>API Health</strong></div><div class="card-body" id="health-info">Checking…</div></div>
+      <div class="row-between" style="margin-bottom:1rem"><h2 class="section-title" style="margin:0">📊 Admin Dashboard</h2>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <span class="text-sm text-muted">Range</span>
+          <button class="btn btn-green btn-sm" onclick="setKpiRange('today',this)">Today</button>
+          <button class="btn btn-gray btn-sm" onclick="setKpiRange('week',this)">Week</button>
+          <button class="btn btn-gray btn-sm" onclick="setKpiRange('month',this)">Month</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1.25rem" class="card">
+        <div class="card-header"><strong>Transactions</strong></div>
+        <div class="card-body" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;justify-content:space-between">
+          <div>
+            <div class="text-sm text-muted">Completed orders (paid & completed)</div>
+            <div style="font-weight:800" id="txn-total-count">—</div>
+            <div class="text-sm text-muted">Total amount sum</div>
+            <div style="font-weight:800" id="txn-total-amount">—</div>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap">
+            <div>
+              <div class="text-sm text-muted" style="margin-bottom:.25rem">User ID</div>
+              <input id="txn-user-id" class="form-control" type="number" placeholder="e.g. 2" style="width:140px"/>
+            </div>
+            <div>
+              <div class="text-sm text-muted" style="margin-bottom:.25rem">Type</div>
+              <select id="txn-type" class="form-control" style="width:170px">
+                <option value="purchase">Purchase (buyer_id)</option>
+                <option value="sell">Sell (farmer_id)</option>
+              </select>
+            </div>
+            <button class="btn btn-green" onclick="loadTxnByUser()">Show</button>
+          </div>
+          <div style="min-width:220px">
+            <div class="text-sm text-muted">Result</div>
+            <div style="font-weight:800" id="txn-user-count">—</div>
+            <div class="text-sm text-muted">Total amount</div>
+            <div style="font-weight:800" id="txn-user-amount">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:1.5rem">
+        <div class="stat-card"><div class="stat-value" id="kpi-rev">…</div><div class="stat-label">Total Revenue</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-orders">…</div><div class="stat-label">Total Orders</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-pending">…</div><div class="stat-label">Pending Orders</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-delivered">…</div><div class="stat-label">Delivered Orders</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-cancelled">…</div><div class="stat-label">Cancelled Orders</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-users">…</div><div class="stat-label">Total Users</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-new-users">…</div><div class="stat-label">New Users</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-active-users">…</div><div class="stat-label">Active Users</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-online">—</div><div class="stat-label">Online Users</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-products-sold">…</div><div class="stat-label">Products Sold (Today)</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-aov">…</div><div class="stat-label">Average Order Value</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-conv">…%</div><div class="stat-label">Conversion Rate</div></div>
+        <div class="stat-card"><div class="stat-value" id="kpi-returning">…</div><div class="stat-label">Returning Customers</div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card"><div class="card-header"><strong>Revenue over time</strong></div><div class="card-body"><div class="chart-wrap"><canvas id="chart-revenue"></canvas></div></div></div>
+        <div class="card"><div class="card-header"><strong>Orders over time</strong></div><div class="card-body"><div class="chart-wrap"><canvas id="chart-orders"></canvas></div></div></div>
+      </div>
+      <div class="grid-2" style="margin-top:1.25rem">
+        <div class="card"><div class="card-header"><strong>Top selling products</strong></div><div class="card-body"><div id="top-products" class="list-simple">Loading…</div></div></div>
+        <div class="card"><div class="card-header"><strong>Sales by category</strong></div><div class="card-body"><div class="chart-wrap"><canvas id="chart-category"></canvas></div></div></div>
+      </div>
+      <div class="grid-2" style="margin-top:1.25rem">
+        <div class="card"><div class="card-header"><strong>Revenue by payment method</strong></div><div class="card-body"><div class="chart-wrap"><canvas id="chart-payment"></canvas></div></div></div>
+        <div id="health-box" class="card"><div class="card-header"><strong>API Health</strong></div><div class="card-body" id="health-info">Checking…</div></div>
+      </div>
     </section>
+
     <section id="s-users" style="display:none">
-      <div class="row-between mb-2"><h2 class="section-title" style="margin:0">👥 Users</h2><input type="text" id="user-search" class="form-control" placeholder="Search…" style="width:220px" oninput="filterUsers()"/></div>
-      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Role</th><th>District</th><th>Verified</th><th>Actions</th></tr></thead><tbody id="users-body"><tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+      <div class="row-between mb-2"><h2 class="section-title" style="margin:0">👥 User Management</h2>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <select id="user-role-filter" class="form-control" style="width:160px" onchange="loadUsers()">
+            <option value="">All roles</option><option value="buyer">Buyers</option><option value="farmer">Farmers</option><option value="admin">Admins</option>
+          </select>
+          <select id="user-status-filter" class="form-control" style="width:160px" onchange="loadUsers()">
+            <option value="">All status</option><option value="active">Active</option><option value="blocked">Blocked</option>
+          </select>
+          <input type="text" id="user-search" class="form-control" placeholder="Search name/phone…" style="width:240px" oninput="filterUsers()"/>
+          <button class="btn btn-gray btn-sm" onclick="exportUsers()">Export</button>
+        </div>
+      </div>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr>
+        <th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Verified</th>
+        <th>Reg. Date</th><th>Last Login</th><th>Last Activity</th><th>Purchases</th><th>Sells</th><th>Status</th><th>Actions</th></tr>
+      </thead><tbody id="users-body"><tr><td colspan="13" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
     </section>
+
     <section id="s-products" style="display:none">
-      <h2 class="section-title">🌿 Products</h2>
-      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Farmer ID</th><th>Qty (kg)</th><th>Price/kg</th><th>Status</th><th>Organic</th></tr></thead><tbody id="products-body"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+      <div class="row-between" style="margin-bottom:1rem"><h2 class="section-title" style="margin:0">🌿 Products</h2>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <select id="product-active-filter" class="form-control" style="width:180px" onchange="loadProducts()">
+            <option value="">All</option><option value="true">Active</option><option value="false">Inactive</option>
+          </select>
+          <button class="btn btn-gray btn-sm" onclick="refreshProducts()">Refresh</button>
+        </div>
+      </div>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr>
+        <th>ID</th><th>Name</th><th>Category</th><th>Farmer ID</th><th>Qty (kg)</th><th>Price/kg</th><th>Status</th><th>Organic</th><th>Views</th><th>Stock Alerts</th><th>Actions</th>
+      </tr></thead><tbody id="products-body"><tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
     </section>
+
     <section id="s-orders" style="display:none">
-      <h2 class="section-title">📦 Orders</h2>
-      <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap"><button class="btn btn-green btn-sm" onclick="filterOrders('all',this)">All</button><button class="btn btn-gray btn-sm" onclick="filterOrders('pending',this)">Pending</button><button class="btn btn-gray btn-sm" onclick="filterOrders('paid',this)">Paid</button><button class="btn btn-gray btn-sm" onclick="filterOrders('completed',this)">Completed</button><button class="btn btn-gray btn-sm" onclick="filterOrders('disputed',this)">Disputed</button></div>
-      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Order #</th><th>Farmer</th><th>Buyer</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="orders-body"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+      <div class="row-between" style="margin-bottom:1rem"><h2 class="section-title" style="margin:0">📦 Orders Management</h2>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <select id="order-status-filter" class="form-control" style="width:210px" onchange="loadOrders()">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="packed">Packed</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="refunded">Refunded</option>
+          </select>
+          <input type="text" id="order-search" class="form-control" placeholder="Search order # / IDs…" style="width:260px" oninput="filterOrders()"/>
+        </div>
+      </div>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr>
+        <th>Order #</th><th>Farmer</th><th>Buyer</th><th>Amount</th><th>Status</th><th>Date</th><th>Timeline</th><th>Delivery Address</th><th>Update Status</th>
+      </tr></thead><tbody id="orders-body"><tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
     </section>
   </main>
 </div>
+
 <script src="/static/js/api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 if(!requireAuth())throw new Error();
 const user=getUser();
+if(!user || user.role !== "admin"){
+  // Replace with a hard stop so non-admins don't see the admin UI
+document.body.innerHTML = "<div style='padding:2rem;font-family:system-ui'>Admin access only. Login as an <b>admin</b> account.</div>";
+  throw new Error("Admin access only");
+
+}
 document.getElementById("admin-name").textContent=user.full_name;
-let allUsers=[],allOrders=[],orderFilter="all";
+
+let allUsers=[],allOrders=[],orderFilter="";
+let kpiRange='today';
+let charts={};
+
+function setKpiRange(r,btn){
+  kpiRange=r;
+  document.querySelectorAll('#s-overview button').forEach(b=>b.className==='btn btn-gray btn-sm');
+  btn.className='btn btn-green btn-sm';
+  loadKpis();
+  loadSeries();
+}
+
+function show(name){
+  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
+  document.querySelectorAll(".sidebar-item").forEach(a=>a.classList.remove("active"));
+  document.getElementById("s-"+name).style.display="block";
+  if(name==="users"&&!allUsers.length)loadUsers();
+  if(name==="products")loadProducts();
+  if(name==="orders")loadOrders();
+}
+
 
 function show(name){
   document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
@@ -47,43 +183,201 @@ function show(name){
   if(name==="orders"&&!allOrders.length)loadOrders();
 }
 
+function upsertChart(key,config){
+  const ctx=document.getElementById(key);
+  if(!ctx) return;
+  if(charts[key]) charts[key].destroy();
+  charts[key]=new Chart(ctx,config);
+}
+
+async function loadKpis(){
+  try{
+    const k=await API.adminKpis(kpiRange);
+    document.getElementById("kpi-rev").textContent=formatCurrency(k.revenue);
+    document.getElementById("kpi-orders").textContent=k.total_orders;
+    document.getElementById("kpi-pending").textContent=k.pending;
+    document.getElementById("kpi-delivered").textContent=k.delivered;
+    document.getElementById("kpi-cancelled").textContent=k.cancelled;
+    document.getElementById("kpi-users").textContent=k.total_users;
+    document.getElementById("kpi-new-users").textContent=k.new_users;
+    document.getElementById("kpi-active-users").textContent=k.active_users;
+    document.getElementById("kpi-aov").textContent=formatCurrency(k.average_order_value);
+    document.getElementById("kpi-conv").textContent=(k.conversion_rate||0).toFixed(2)+"%";
+    document.getElementById("kpi-returning").textContent=k.returning_customers || '0';
+  }catch(e){
+    // keep placeholders
+  }
+}
+
+async function loadSeries(){
+  try{
+    const rev=await API.adminRevenueSeries(14);
+    upsertChart("chart-revenue",{
+      type:"line",
+      data:{labels:rev.labels, datasets:[{label:"Revenue", data:rev.series[0].data, borderColor:"#1a5c2a", backgroundColor:"rgba(26,92,42,0.12)", tension:.35}]},
+      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+
+    const orderStatus=document.getElementById('order-status-filter')?.value || '';
+    const ord=await API.adminOrdersSeries(14, orderStatus);
+    upsertChart("chart-orders",{
+      type:"line",
+      data:{labels:ord.labels, datasets:[{label:"Orders", data:ord.series[0].data, borderColor:"#2d8a45", backgroundColor:"rgba(45,138,69,0.12)", tension:.35}]},
+      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+
+
+    const top=await API.adminTopProducts(8);
+    document.getElementById("top-products").innerHTML=top.products.length
+      ? top.products.map(p=>`<div class="row-between" style="padding:.45rem .1rem;border-bottom:1px solid var(--border)"><div><strong>${p.name}</strong><div class="text-sm text-muted">Qty: ${p.qty}</div></div><div class="text-green" style="font-weight:700">${formatCurrency(p.sales)}</div></div>`).join("")
+      : '<div class="empty-state"><div class="icon">🧾</div><div>No data</div></div>';
+
+    const cat=await API.adminSalesByCategory(8);
+    upsertChart("chart-category",{
+      type:"bar",
+      data:{labels:cat.labels, datasets:[{label:"Sales", data:cat.series[0].data, backgroundColor:"rgba(26,92,42,0.25)", borderColor:"#1a5c2a", borderWidth:1}]},
+      options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+    });
+
+    const pay=await API.adminSalesByPaymentMethod();
+    upsertChart("chart-payment",{
+      type:"doughnut",
+      data:{labels:pay.labels, datasets:[{data:pay.series[0].data, backgroundColor:["#1a5c2a","#2d8a45","#e65100","#1565c0","#6a1b9a","#757575"]}]},
+      options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+    });
+  }catch(e){}
+}
+
 async function loadOverview(){
   try{
-    const stats=await API.adminStats();
-    document.getElementById("su").textContent=stats.users.total;
-    document.getElementById("sf").textContent=stats.users.farmers;
-    document.getElementById("sb").textContent=stats.users.buyers;
-    document.getElementById("so").textContent=stats.orders.total;
-    document.getElementById("sgmv").textContent=formatCurrency(stats.financials.gmv);
-    document.getElementById("srev").textContent=formatCurrency(stats.financials.revenue);
+    // Phase 1 KPIs
+    const k=await API.adminKpis(kpiRange);
+    if(document.getElementById("kpi-rev")) document.getElementById("kpi-rev").textContent=formatCurrency(k.revenue);
+    if(document.getElementById("kpi-orders")) document.getElementById("kpi-orders").textContent=k.total_orders;
+    document.getElementById("kpi-products-sold").textContent='—';
+
     const h=await fetch("/api/health").then(r=>r.json());
     document.getElementById("health-info").innerHTML=`<div>Status: <strong style="color:var(--green)">✅ ${h.status}</strong></div><div>Redis: <strong>${h.redis}</strong></div><div>Version: <strong>${h.version}</strong></div>`;
   }catch(e){document.getElementById("health-info").textContent="Could not load stats. Admin role required."}
 }
 
+
+
 async function loadUsers(){
   try{
-    const us=await apiFetch("/admin/users?limit=100");
-    allUsers=us;renderUsers(us);
-  }catch(e){document.getElementById("users-body").innerHTML=`<tr><td colspan="7" style="color:red;text-align:center">${e.message}</td></tr>`}
+    const role=document.getElementById('user-role-filter')?.value || '';
+    const status=document.getElementById('user-status-filter')?.value || '';
+    const q=document.getElementById('user-search')?.value || '';
+
+    let url=`/admin/users/search?limit=100`;
+    if(role) url+=`&role=${encodeURIComponent(role)}`;
+    if(status) url+=`&status=${encodeURIComponent(status)}`;
+    if(q) url+=`&q=${encodeURIComponent(q)}`;
+
+    const us=await apiFetch(url);
+    allUsers=us;
+    renderUsers(us);
+  }catch(e){
+    document.getElementById("users-body").innerHTML=`<tr><td colspan="11" style="color:red;text-align:center">${e.message}</td></tr>`
+  }
 }
 
-function renderUsers(users){
-  document.getElementById("users-body").innerHTML=users.length?users.map(u=>`<tr><td>${u.id}</td><td><strong>${u.full_name}</strong></td><td>${u.phone}</td><td><span class="tag">${u.role}</span></td><td>${u.district||"—"}</td><td>${u.is_verified?"✅":"❌"}</td><td><button class="btn btn-gray btn-sm" onclick="toggleUser(${u.id})">Toggle</button></td></tr>`).join(""):'<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--muted)">No users</td></tr>';
+async function deleteUser(id){
+  try{
+    await apiFetch(`/admin/users/${id}`,{method:"DELETE"});
+    showToast('User deleted','info');
+    loadUsers();
+  }catch(e){showToast(e.message,'error')}
 }
-function filterUsers(){const q=document.getElementById("user-search").value.toLowerCase();renderUsers(allUsers.filter(u=>u.full_name.toLowerCase().includes(q)||u.phone.includes(q)))}
+
+
+function renderUsers(users){
+  const body=document.getElementById("users-body");
+  body.innerHTML=users.length?users.map(u=>{
+    const status=u.is_active?"Active":"Blocked";
+    return `<tr>
+      <td>${u.id}</td>
+      <td><strong>${u.full_name||"—"}</strong></td>
+      <td>${u.email||"—"}</td>
+      <td>${u.phone||"—"}</td>
+      <td><span class="tag">${u.role||"—"}</span></td>
+      <td>${u.is_verified?"✅":"❌"}</td>
+      <td>${u.created_at?formatDate(u.created_at):"—"}</td>
+      <td>—</td>
+      <td>—</td>
+      <td>${u.purchase_orders_count ?? 0}</td>
+      <td>${u.sell_orders_count ?? 0}</td>
+      <td><span class="tag" style="background:${u.is_active?'#e8f5e9':'#fce4ec'};color:${u.is_active?'#1a5c2a':'#c62828'}">${status}</span></td>
+      <td>
+        <button class="btn btn-gray btn-sm" onclick="toggleUser(${u.id})">${u.is_active?'Block':'Unblock'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    </tr>`
+  }).join(""):'<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--muted)">No users</td></tr>';
+}
+function filterUsers(){
+  const q=document.getElementById("user-search").value.toLowerCase();
+  const filtered=allUsers.filter(u=>
+    (u.full_name||"").toLowerCase().includes(q) || (u.phone||"").toLowerCase().includes(q) || (u.email||"").toLowerCase().includes(q)
+  );
+  renderUsers(filtered);
+}
+
 async function toggleUser(id){try{const r=await apiFetch(`/admin/users/${id}/toggle-active`,{method:"PATCH"});showToast(`User ${r.is_active?"activated":"deactivated"}`,"info");loadUsers()}catch(e){showToast(e.message,"error")}}
 
 async function loadProducts(){
   try{
-    const ps=await API.listProducts({limit:100});
-    document.getElementById("products-body").innerHTML=ps.length?ps.map(p=>`<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td>${p.category}</td><td>${p.farmer_id}</td><td>${p.quantity_kg}</td><td>${formatCurrency(p.price_per_kg)}</td><td>${statusBadge(p.status)}</td><td>${p.is_organic?"🌿":"—"}</td></tr>`).join(""):'<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--muted)">No products</td></tr>';
+    const active=document.getElementById('product-active-filter')?.value;
+    let params={limit:100};
+    if(active==='true') params.active=true;
+    if(active==='false') params.active=false;
+
+    const ps=await API.adminListProducts(params);
+    document.getElementById("products-body").innerHTML=ps.length?ps.map(p=>{
+      const low=p.quantity_kg<=p.min_order_kg;
+      const alert= p.quantity_kg<=0 ? 'Out of stock' : (low ? 'Low stock' : '—');
+      return `<tr>
+        <td>${p.id}</td>
+        <td><strong>${p.name}</strong></td>
+        <td>${p.category||'—'}</td>
+        <td>${p.farmer_id}</td>
+        <td>${p.quantity_kg}</td>
+        <td>${formatCurrency(p.price_per_kg)}</td>
+        <td>${statusBadge(p.status)}</td>
+        <td>${p.is_organic?"🌿":"—"}</td>
+        <td>${p.views_count||0}</td>
+        <td><span class="tag" style="background:${alert==='Low stock'?'#fff8e1':alert==='Out of stock'?'#fce4ec':'#f5f5f5'};color:${alert==='Low stock'?'#f57f17':alert==='Out of stock'?'#c62828':'#757575'}">${alert}</span></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})">Delete</button></td>
+      </tr>`
+    }).join(""):'<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--muted)">No products</td></tr>';
   }catch(e){}
 }
 
-async function loadOrders(){
-  try{allOrders=await API.listOrders();renderOrders()}catch(e){}
+async function deleteProduct(id){
+  try{
+    await apiFetch(`/admin/products/${id}`,{method:"DELETE"});
+    showToast('Product deleted','info');
+    loadProducts();
+  }catch(e){showToast(e.message,'error')}
 }
+
+function refreshProducts(){loadProducts()}
+
+
+async function loadOrders(){
+  try{
+    // Use admin endpoint (NOT buyer-facing /orders/)
+    const params={limit:200, offset:0};
+    if(orderFilter) params.status = orderFilter;
+    allOrders = await API.adminListOrders(params);
+    renderOrders();
+  }catch(e){
+    console.error(e);
+    showToast(e.message || "Failed to load orders","error");
+  }
+}
+
+
 
 function renderOrders(){
   const rows=(orderFilter==="all"?allOrders:allOrders.filter(o=>o.status===orderFilter));
@@ -92,5 +386,44 @@ function renderOrders(){
 
 function filterOrders(status,btn){orderFilter=status;document.querySelectorAll(".btn-sm").forEach(b=>{if(b.onclick&&b.onclick.toString().includes("filterOrders"))b.className="btn btn-gray btn-sm"});btn.className="btn btn-green btn-sm";renderOrders()}
 
-loadOverview();
+
+
+async function loadTxnSummary(){
+  try{
+    const r = await apiFetch('/admin/analytics/transactions-summary');
+    document.getElementById('txn-total-count').textContent = r.paid_completed_orders;
+    document.getElementById('txn-total-amount').textContent = formatCurrency(r.total_amount_sum);
+  }catch(e){
+    document.getElementById('txn-total-count').textContent='—';
+    document.getElementById('txn-total-amount').textContent='—';
+  }
+}
+
+async function loadTxnByUser(){
+  try{
+    const uidRaw = document.getElementById('txn-user-id')?.value;
+    const type = document.getElementById('txn-type')?.value || 'purchase';
+    if(!uidRaw){
+      showToast('Enter user id','error');
+      return;
+    }
+    const user_id = parseInt(uidRaw,10);
+    const r = await apiFetch(`/admin/analytics/transactions-by-user?user_id=${encodeURIComponent(user_id)}&type=${encodeURIComponent(type)}`);
+    document.getElementById('txn-user-count').textContent = r.orders_count;
+    document.getElementById('txn-user-amount').textContent = formatCurrency(r.total_amount_sum);
+  }catch(e){
+    showToast(e.message || 'Failed to load transactions','error');
+  }
+}
+
+async function init(){
+  loadOverview();
+  loadKpis();
+  loadSeries();
+  // ensure admin-only transaction endpoints render immediately
+  loadTxnSummary();
+}
+
+
+init();
 </script></body></html>

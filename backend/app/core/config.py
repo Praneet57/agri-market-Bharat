@@ -1,5 +1,12 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from typing import List
+
+# Force .env values into environment to avoid stale Docker container env vars.
+BASE_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(dotenv_path=BASE_DIR / ".env", override=True)
 
 class Settings(BaseSettings):
     APP_NAME: str = "AgriMarketplace"

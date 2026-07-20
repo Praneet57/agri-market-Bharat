@@ -53,6 +53,8 @@ services:
       - ./backend:/app
       - ./frontend:/frontend
       - pdf_storage:/tmp
+      - ./uploads:/app/uploads
+
     depends_on:
       postgres:
         condition: service_healthy

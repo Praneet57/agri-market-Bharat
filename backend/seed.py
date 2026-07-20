@@ -17,7 +17,11 @@ async def seed():
         buyer = User(full_name="Priya Traders",phone="9000000002",email="priya@traders.com",
                      hashed_password=get_password_hash("buyer123"),role="buyer",
                      district="Coimbatore",state="Tamil Nadu",latitude=11.0168,longitude=76.9558)
-        db.add(farmer); db.add(buyer); await db.flush()
+        admin = User(full_name="Admin User",phone="9000000003",email="admin@agri.com",
+                      hashed_password=get_password_hash("admin123"),role="admin",
+                      village="—",district="—",state="—",latitude=0.0,longitude=0.0)
+        db.add(farmer); db.add(buyer); db.add(admin); await db.flush()
+
         for p in [
             Product(farmer_id=farmer.id,name="Alphonso Mangoes",category="Fruits",quantity_kg=500,price_per_kg=120,min_order_kg=50,district="Dindigul",latitude=10.4533,longitude=77.5194,is_organic=True,description="Premium quality sweet mangoes"),
             Product(farmer_id=farmer.id,name="Fresh Tomatoes",category="Vegetables",quantity_kg=1000,price_per_kg=18,min_order_kg=100,district="Dindigul",latitude=10.4533,longitude=77.5194),

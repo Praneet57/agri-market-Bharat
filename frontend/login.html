@@ -26,9 +26,16 @@ async function doLogin(){
   btn.innerHTML='<span class="loader"></span> Signing in…';btn.disabled=true;
   try{
     const data=await API.login({phone,password});
+    if(!data || !data.access_token || !data.user){
+      throw new Error("Login failed. Please try again.");
+    }
     setAuth(data.access_token,data.refresh_token,data.user);
     showToast("Welcome back, "+data.user.full_name+"! 👋","success");
-    setTimeout(()=>{window.location.href=data.user.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html"},600);
-  }catch(e){err.textContent=e.message;err.style.display="block";btn.innerHTML="Sign In";btn.disabled=false}
+    setTimeout(()=>{
+      window.location.href=
+        data.user.role==="admin"?"/admin/dashboard.html":(data.user.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html")
+    },600);
+  }catch(e){err.textContent=e.message||"Login failed";err.style.display="block";btn.innerHTML="Sign In";btn.disabled=false}
+
 }
 </script></body></html>

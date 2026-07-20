@@ -83,16 +83,40 @@ payment_router = APIRouter(prefix="/payments", tags=["Payments"])
 async def create_payment(data: PaymentCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Order).where(Order.id == data.order_id))
     order = result.scalar_one_or_none()
-    if not order or order.buyer_id != current_user.id: raise HTTPException(404, "Order not found")
-    try:
-        import razorpay
-        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        rz = client.order.create({"amount": int(order.total_amount*100), "currency":"INR", "receipt": order.order_number})
-        rzp_id = rz["id"]
-    except Exception:
+    if not order:
+        raise HTTPException(404, "Order not found")
+    if order.buyer_id != current_user.id:
+        raise HTTPException(403, "You are not the buyer of this order")
+    # Check order status allows payment (allow accepted, payment_pending, pending)
+    if order.status not in ["pending", "accepted", "payment_pending"]:
+        raise HTTPException(400, f"Cannot pay for order with status: {order.status}")
+    # Check if payment already exists for this order - return existing if so
+    existing = await db.execute(select(Payment).where(Payment.order_id == order.id))
+    existing_payment = existing.scalar_one_or_none()
+    if existing_payment:
+        return {"razorpay_order_id": existing_payment.razorpay_order_id, "amount": int(existing_payment.amount*100), "currency": "INR", "key": settings.RAZORPAY_KEY_ID, "order_number": order.order_number}
+    rzp_id = None
+    # Check if using valid Razorpay credentials (not demo)
+    is_real_razorpay = settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET and settings.RAZORPAY_KEY_SECRET != "demo_secret"
+    if is_real_razorpay:
+        try:
+            import razorpay
+            client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+            rz = client.order.create({"amount": int(order.total_amount*100), "currency":"INR", "receipt": order.order_number})
+            rzp_id = rz["id"]
+            print(f"Created real Razorpay order: {rzp_id}")
+        except Exception as e:
+            print(f"Razorpay API error: {e}")
+            # Return error to client instead of creating demo order
+            raise HTTPException(500, f"Payment gateway error: {str(e)}")
+    else:
         rzp_id = f"order_demo_{uuid.uuid4().hex[:12]}"
     pay = Payment(order_id=order.id, razorpay_order_id=rzp_id, amount=order.total_amount)
-    db.add(pay); await db.flush()
+    db.add(pay)
+    await db.flush()
+    # Update order status to payment_pending
+    order.status = "payment_pending"
+    await db.flush()
     return {"razorpay_order_id": rzp_id, "amount": int(order.total_amount*100), "currency": "INR", "key": settings.RAZORPAY_KEY_ID, "order_number": order.order_number}
 
 @payment_router.post("/verify")

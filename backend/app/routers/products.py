@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from typing import List, Optional
@@ -53,7 +54,13 @@ async def list_products(category: Optional[str]=None, district: Optional[str]=No
 
 @router.get("/my", response_model=List[ProductOut])
 async def my_products(current_user: User = Depends(require_farmer), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Product).where(Product.farmer_id == current_user.id))
+    # Only show active listings in "My Products" (soft delete sets is_active=False)
+    filters = [
+        Product.farmer_id == current_user.id,
+        Product.is_active == True,
+        Product.status == "available",
+    ]
+    result = await db.execute(select(Product).where(and_(*filters)))
     return [ProductOut.model_validate(p) for p in result.scalars().all()]
 
 @router.get("/{product_id}", response_model=ProductOut)
@@ -78,3 +85,41 @@ async def delete_product(product_id: int, current_user: User = Depends(require_f
     p = result.scalar_one_or_none()
     if not p: raise HTTPException(404, "Product not found")
     p.is_active = False; await db.flush()
+
+
+@router.post("/upload-image", response_model=dict)
+async def upload_product_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_farmer),
+):
+    # Validate file type
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/jpg"}
+    if file.content_type not in allowed:
+        raise HTTPException(400, "Only JPG, PNG, WEBP images allowed")
+
+    # Validate file size (max 5MB)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Image must be under 5MB")
+
+    import os
+    import uuid
+
+    # In docker-compose we mount host ./uploads to container /app/uploads
+    upload_dir = os.path.join("/app/uploads", "products")
+
+    os.makedirs(upload_dir, exist_ok=True)
+
+    ext = (file.filename.split(".")[-1] or "jpg").lower()
+    if ext not in ["jpg", "jpeg", "png", "webp"]:
+        ext = "jpg"
+
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(upload_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    image_url = f"/uploads/products/{filename}"
+    return {"image_url": image_url, "filename": filename}
+
