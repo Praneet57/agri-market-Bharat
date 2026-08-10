@@ -24,7 +24,7 @@
     <div class="text-center mt-2" style="font-size:.9rem;color:var(--muted)">Already have an account? <a href="/login.html" style="color:var(--green);font-weight:600">Sign In</a></div>
   </div>
 </div>
-<script src="/static/js/api.js"></script>
+<script src="/static/js/api.js?v=2"></script>
 <script>
 redirectIfLoggedIn();
 const params=new URLSearchParams(window.location.search);
@@ -33,9 +33,11 @@ function selRole(r){document.getElementById("role").value=r;document.getElementB
 async function doRegister(){
   const err=document.getElementById("err"),btn=document.getElementById("btn");
   err.style.display="none";
-  const data={full_name:document.getElementById("name").value.trim(),phone:document.getElementById("phone").value.trim(),email:document.getElementById("email").value.trim()||null,password:document.getElementById("pwd").value,role:document.getElementById("role").value,village:document.getElementById("village").value.trim()||null,district:document.getElementById("district").value.trim()||null,state:document.getElementById("state").value||null};
+  const district=document.getElementById("district").value.trim();
+  const data={full_name:document.getElementById("name").value.trim(),phone:document.getElementById("phone").value.trim(),email:document.getElementById("email").value.trim()||null,password:document.getElementById("pwd").value,role:document.getElementById("role").value,village:document.getElementById("village").value.trim()||null,district,state:document.getElementById("state").value||null};
   const cp=document.getElementById("cpwd").value;
   if(!data.full_name||!data.phone||!data.password){err.textContent="Fill in all required fields.";err.style.display="block";return}
+  if(!district){err.textContent="Please enter your district.";err.style.display="block";return}
   if(data.password!==cp){err.textContent="Passwords do not match.";err.style.display="block";return}
   btn.innerHTML='<span class="loader"></span> Creating…';btn.disabled=true;
   try{

@@ -5,7 +5,7 @@ from enum import Enum
 
 
 class UserRole(str, Enum):
-    
+
     buyer = "buyer"
     admin = "admin"
 
@@ -72,6 +72,7 @@ class ProductCreate(BaseModel):
     description: Optional[str] = None
 
     quantity_kg: float = Field(..., gt=0)
+    quantity_unit: Optional[str] = "kg"
     price_per_kg: float = Field(..., gt=0)
 
     min_order_kg: float = 1.0
@@ -89,6 +90,7 @@ class ProductCreate(BaseModel):
 class ProductUpdate(BaseModel):
     description: Optional[str] = None
     quantity_kg: Optional[float] = None
+    quantity_unit: Optional[str] = None
     price_per_kg: Optional[float] = None
     min_order_kg: Optional[float] = None
     is_organic: Optional[bool] = None
@@ -104,6 +106,7 @@ class ProductOut(BaseModel):
     description: Optional[str]
 
     quantity_kg: float
+    quantity_unit: Optional[str] = "kg"
     price_per_kg: float
     min_order_kg: float
     status: str
@@ -129,8 +132,8 @@ class DemandCreate(BaseModel):
     description: Optional[str] = None
     quantity_kg: float = Field(..., gt=0)
     max_price_per_kg: float = Field(..., gt=0)
-    district: Optional[str] = None
-    delivery_address: Optional[str] = None
+    district: str = Field(..., min_length=1)
+    delivery_address: str = Field(..., min_length=1)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     required_by: Optional[datetime] = None
@@ -146,9 +149,9 @@ class DemandOut(BaseModel):
     max_price_per_kg: float
     status: str
     district: Optional[str]
+    delivery_address: Optional[str]
     required_by: Optional[datetime]
     created_at: datetime
-
     class Config:
         from_attributes = True
 
@@ -161,7 +164,10 @@ class OrderCreate(BaseModel):
     quantity_kg: float = Field(..., gt=0)
     price_per_kg: float = Field(..., gt=0)
 
-    delivery_address: Optional[str] = None
+    delivery_address: str = Field(..., min_length=1)
+    district: str = Field(..., min_length=1)
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     notes: Optional[str] = None
 
 
@@ -186,6 +192,9 @@ class OrderOut(BaseModel):
     status: str
 
     delivery_address: Optional[str]
+    district: Optional[str]
+    latitude: Optional[float]
+    longitude: Optional[float]
     notes: Optional[str]
 
     created_at: datetime
@@ -244,4 +253,3 @@ class RatingOut(BaseModel):
 
 
 Token.model_rebuild()
-

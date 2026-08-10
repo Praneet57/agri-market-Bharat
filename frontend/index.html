@@ -2,6 +2,7 @@
 <body>
 <nav class="navbar">
   <a class="navbar-brand" href="/"><span>🌾</span> AgriMarket</a>
+  <button class="mobile-menu-btn hide-on-desktop" onclick="toggleMobileNav()" aria-label="Menu">☰</button>
   <div class="nav-links" id="guest-nav"><a href="/login.html">Login</a><a href="/register.html" class="btn-white">Register Free</a></div>
   <div id="user-nav" style="display:none;align-items:center;gap:.75rem">
     <div class="avatar" id="nav-avatar">U</div><span style="color:white;font-size:.9rem" id="nav-username"></span>
@@ -43,8 +44,18 @@
   <a href="/register.html" style="background:white;color:var(--green);padding:.9rem 2.5rem;border-radius:8px;font-weight:700;text-decoration:none">Get Started Free</a>
 </section>
 <footer style="background:#111;color:rgba(255,255,255,0.6);text-align:center;padding:1.5rem;font-size:.85rem">© 2024 AgriMarket · Built for Indian Farmers · <a href="/api/docs" style="color:rgba(255,255,255,0.5)">API Docs</a></footer>
-<script src="/static/js/api.js"></script>
+<script src="/static/js/api.js?v=2"></script>
 <script>
+function toggleMobileNav(){
+  const guest=document.getElementById("guest-nav");
+  const user=document.getElementById("user-nav");
+  const isLoggedIn=!!getUser();
+  if(isLoggedIn){
+    if(user)user.classList.toggle("mobile-open");
+  }else{
+    if(guest)guest.classList.toggle("mobile-open");
+  }
+}
 function goToDash(){const u=getUser();if(u)window.location.href=u.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html"}
 const emojis={rice:"🌾",wheat:"🌾",banana:"🍌",tomato:"🍅",onion:"🧅",potato:"🥔",mango:"🥭",spice:"🌶",corn:"🌽"};
 const getEmoji=n=>{const k=Object.keys(emojis).find(k=>n.toLowerCase().includes(k));return emojis[k]||"🌿"};
@@ -65,7 +76,7 @@ async function loadProducts(){
       <div class="card-body">
         <div class="row-between mb-2"><strong>${p.name}</strong>${p.is_organic?'<span class="product-badge badge-organic">Organic</span>':''}</div>
         <div class="price-tag">${formatCurrency(p.price_per_kg)}/kg</div>
-        <div class="text-sm text-muted mt-1">${p.quantity_kg} kg available</div>
+        <div class="text-sm text-muted mt-1">${formatQty(p)} available</div>
         ${p.district?`<div class="text-sm text-muted">${p.district}</div>`:''}
         <button class="btn btn-green btn-sm btn-full mt-2">View & Order</button>
       </div></div>`).join("");

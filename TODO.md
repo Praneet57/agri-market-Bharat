@@ -1,21 +1,22 @@
-# TODO
+# TODO — Quantity Unit Selector (gram/ton/kg) + Auto Stock Reduction on Order
 
-## Admin Dashboard (Phase 1: KPIs + Orders + Users + Products + Basic Analytics)
-- [x] Inspect existing admin UI/backend endpoints and data models.
-- [x] Extend backend `agri/backend/app/routers/admin.py` with dashboard KPIs + time-series analytics endpoints.
-- [x] Add backend endpoints for admin order listing + admin order status update.
-- [x] Add backend endpoints for admin product listing + CRUD (create/update/delete + stock status signals).
-- [x] Add backend endpoints for user search/filter and delete/export.
+## Goal
+1. Farmers can post product quantity in grams, kg, or tons (easy unit choice).
+2. When a buyer places an order, the product's remaining stock is reduced automatically (e.g. 500kg banana → buyer buys 300kg → 200kg left, shown on dashboard card).
 
-- [x] Update frontend `agri/frontend/admin/dashboard.html` to a modern responsive layout with KPI cards + charts.
-- [x] Extend `agri/frontend/static/js/api.js` with `API.admin*` methods.
-- [x] Update `agri/frontend/static/css/style.css` with dashboard-specific chart/table controls.
-- [ ] Smoke test: open `/admin/dashboard.html` and validate admin gating + charts load.
+## Backend
+- [x] 1. `app/models/product.py` — add `quantity_unit` column (default `kg`)
+- [x] 2. `app/schemas/__init__.py` — add `quantity_unit` to `ProductCreate`, `ProductUpdate`, `ProductOut`
+- [x] 3. `app/core/database.py` — add `quantity_unit` to `_ensure_columns` for existing DBs
+- [x] 4. `app/routers/products.py` — accept `quantity_unit` on create/update
+- [x] 5. `app/routers/transactions.py` — reduce product stock on order create; restore on cancel/reject
 
+## Frontend
+- [x] 6. `static/js/api.js` — add `formatQty()` helper (kg/ton/gram display)
+- [x] 7. `farmer/dashboard.html` — unit selector in Add Product form; convert to kg; show remaining stock in cards & overview
+- [x] 8. `buyer/dashboard.html` — show quantity via `formatQty`; show available stock (auto-reduced) in marketplace & order modal
+- [x] 9. `index.html` — display product quantity via `formatQty`
+- [x] 10. `profile.html` — display product quantity via `formatQty`
 
-
-## Admin Dashboard (Phase 2: Live monitoring + audit logs + sessions)
-- [ ] Add DB models/tables for sessions/online presence/activity and audit logs.
-- [ ] Implement live monitoring endpoints + websocket/SSE (or polling).
-- [ ] Audit log table + admin action tracking middleware.
-
+## Follow-up
+- [ ] 11. Restart backend (creates `quantity_unit` column via `_ensure_columns`), run syntax check, then test

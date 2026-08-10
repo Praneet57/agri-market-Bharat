@@ -80,6 +80,7 @@ const API={
     return res.json();
   },
   listProducts:(p={})=>apiFetch("/products/?"+new URLSearchParams(p)),
+  getUserProducts:(id)=>apiFetch(`/products/?farmer_id=${id}&limit=100`),
   myProducts:()=>apiFetch("/products/my"),
   getProduct:(id)=>apiFetch(`/products/${id}`),
   updateProduct:(id,d)=>apiFetch(`/products/${id}`,{method:"PUT",body:JSON.stringify(d)}),
@@ -140,6 +141,16 @@ function statusBadge(s){return`<span class="status status-${s}">${s.replace("_",
 function formatDate(d){if(!d)return"-";return new Date(d).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
 function formatCurrency(n){return"₹"+Number(n).toLocaleString("en-IN",{minimumFractionDigits:2})}
 
+// Convert a product's stored kg quantity into its displayed unit (gram/ton/kg)
+function formatQty(p){
+  const kg=Number(p?.quantity_kg)||0;
+  const unit=(p?.quantity_unit||"kg").toLowerCase();
+  if(unit==="gram"||unit==="g"){return trimNum(kg*1000)+" g"}
+  if(unit==="ton"||unit==="tonne"||unit==="t"){return trimNum(kg/1000)+" ton"}
+  return trimNum(kg)+" kg"
+}
+function trimNum(n){const r=Math.round(n*100)/100;return (Number.isInteger(r)?r:r.toFixed(2)).toLocaleString("en-IN")}
+
 async function initiatePayment(order_id,onSuccess){
   try{
     const pd=await API.createPayment(order_id);
@@ -163,4 +174,3 @@ function renderNavbar(){
   if(u){u.style.display="flex";const n=document.getElementById("nav-username");const a=document.getElementById("nav-avatar");if(n)n.textContent=user.full_name.split(" ")[0];if(a)a.textContent=user.full_name[0].toUpperCase()}
 }
 document.addEventListener("DOMContentLoaded",renderNavbar);
-

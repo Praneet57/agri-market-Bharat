@@ -24,6 +24,15 @@ async def create_product(data: ProductCreate, current_user: User = Depends(requi
     d["latitude"] = d.get("latitude") or current_user.latitude
     d["longitude"] = d.get("longitude") or current_user.longitude
     d["district"] = d.get("district") or current_user.district
+    # Normalize unit; ensure quantity_kg is stored in kg
+    unit = (d.get("quantity_unit") or "kg").lower()
+    if unit not in ("kg", "ton", "gram"):
+        unit = "kg"
+    d["quantity_unit"] = unit
+    if unit == "ton":
+        d["quantity_kg"] = d["quantity_kg"] * 1000
+    elif unit == "gram":
+        d["quantity_kg"] = d["quantity_kg"] / 1000
     product = Product(farmer_id=current_user.id, **d)
     db.add(product); await db.flush(); await db.refresh(product)
     return ProductOut.model_validate(product)
@@ -31,7 +40,8 @@ async def create_product(data: ProductCreate, current_user: User = Depends(requi
 @router.get("/", response_model=List[ProductOut])
 async def list_products(category: Optional[str]=None, district: Optional[str]=None,
     min_price: Optional[float]=None, max_price: Optional[float]=None,
-    is_organic: Optional[bool]=None, lat: Optional[float]=Query(None),
+    is_organic: Optional[bool]=None, farmer_id: Optional[int]=None,
+    lat: Optional[float]=Query(None),
     lon: Optional[float]=Query(None), radius_km: float=200.0,
     limit: int=Query(20, le=100), offset: int=0, db: AsyncSession=Depends(get_db)):
     filters = [Product.status == "available", Product.is_active == True]
@@ -40,6 +50,7 @@ async def list_products(category: Optional[str]=None, district: Optional[str]=No
     if min_price is not None: filters.append(Product.price_per_kg >= min_price)
     if max_price is not None: filters.append(Product.price_per_kg <= max_price)
     if is_organic is not None: filters.append(Product.is_organic == is_organic)
+    if farmer_id is not None: filters.append(Product.farmer_id == farmer_id)
     result = await db.execute(select(Product).where(and_(*filters)).offset(offset).limit(limit))
     out = []
     for p in result.scalars().all():
@@ -76,7 +87,19 @@ async def update_product(product_id: int, data: ProductUpdate, current_user: Use
     result = await db.execute(select(Product).where(Product.id == product_id, Product.farmer_id == current_user.id))
     p = result.scalar_one_or_none()
     if not p: raise HTTPException(404, "Product not found")
-    for k,v in data.model_dump(exclude_unset=True).items(): setattr(p, k, v)
+    updates = data.model_dump(exclude_unset=True)
+    # If unit changes, re-normalize the quantity to kg
+    if "quantity_unit" in updates and updates["quantity_unit"] is not None:
+        unit = updates["quantity_unit"].lower()
+        if unit not in ("kg", "ton", "gram"):
+            unit = "kg"
+        updates["quantity_unit"] = unit
+        if "quantity_kg" in updates and updates["quantity_kg"] is not None:
+            if unit == "ton":
+                updates["quantity_kg"] = updates["quantity_kg"] * 1000
+            elif unit == "gram":
+                updates["quantity_kg"] = updates["quantity_kg"] / 1000
+    for k,v in updates.items(): setattr(p, k, v)
     await db.flush(); return ProductOut.model_validate(p)
 
 @router.delete("/{product_id}", status_code=204)
@@ -122,4 +145,3 @@ async def upload_product_image(
 
     image_url = f"/uploads/products/{filename}"
     return {"image_url": image_url, "filename": filename}
-

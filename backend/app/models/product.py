@@ -11,6 +11,7 @@ class Product(Base):
     category = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     quantity_kg = Column(Float, nullable=False)
+    quantity_unit = Column(String(10), default="kg")
     price_per_kg = Column(Float, nullable=False)
     min_order_kg = Column(Float, default=1.0)
     status = Column(String(30), default="available")

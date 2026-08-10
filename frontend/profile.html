@@ -3,14 +3,19 @@
 <nav class="navbar"><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket</a>
   <div style="display:flex;align-items:center;gap:1rem"><a id="nav-dash" href="#" style="color:rgba(255,255,255,.8);text-decoration:none;font-size:.9rem">← Dashboard</a><a href="#" onclick="logout()" style="color:rgba(255,255,255,.7);font-size:.85rem;text-decoration:none">Logout</a></div>
 </nav>
-<div style="max-width:700px;margin:2rem auto;padding:0 1.5rem">
-  <h2 class="section-title">👤 My Profile</h2>
+<div style="max-width:900px;margin:2rem auto;padding:0 1.5rem">
+  <h2 class="section-title" id="page-title">👤 My Profile</h2>
   <div class="card" style="margin-bottom:1.5rem">
     <div class="card-body" style="display:flex;align-items:center;gap:1.5rem;padding:1.5rem">
       <div style="width:72px;height:72px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;color:white;font-size:2rem;font-weight:700;flex-shrink:0" id="avatar">U</div>
-      <div><div style="font-size:1.3rem;font-weight:700" id="disp-name">Loading…</div><div class="text-muted" id="disp-role"></div><div class="text-sm text-muted" id="disp-phone"></div><div style="margin-top:.4rem" id="disp-verified"></div></div>
+      <div style="flex:1"><div style="font-size:1.3rem;font-weight:700" id="disp-name">Loading…</div><div class="text-muted" id="disp-role"></div><div class="text-sm text-muted" id="disp-phone"></div><div class="text-sm text-muted" id="disp-loc"></div><div style="margin-top:.4rem" id="disp-verified"></div><div class="text-sm text-muted" id="disp-bio" style="margin-top:.4rem"></div></div>
     </div>
   </div>
+
+  <h3 class="section-title" id="posts-title" style="margin-bottom:1rem">📦 Posted in Marketplace</h3>
+  <div id="posts-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1.25rem"></div>
+
+  <div id="edit-section">
   <div class="card" style="margin-bottom:1.5rem">
     <div class="card-header"><strong>Edit Profile</strong></div>
     <div class="card-body">
@@ -50,25 +55,82 @@
       </div>
     </div>
   </div>
+  </div>
 </div>
-<script src="/static/js/api.js"></script>
+<script src="/static/js/api.js?v=2"></script>
 <script>
 if(!requireAuth())throw new Error();
 const user=getUser();
+const params=new URLSearchParams(window.location.search);
+const viewUserId=params.get("user_id");
 document.getElementById("nav-dash").href=user.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html";
+
+if(viewUserId){
+  document.getElementById("page-title").textContent="🌾 Farmer Profile";
+  document.getElementById("edit-section").style.display="none";
+  document.getElementById("nav-dash").textContent="← Back";
+  document.getElementById("nav-dash").href=sessionStorage.getItem("previousPage")||(user.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html");
+}
+
+function timeAgo(dateStr){
+  if(!dateStr)return "";
+  const seconds=Math.floor((new Date()-new Date(dateStr))/1000);
+  if(seconds<60)return "just now";
+  if(seconds<3600)return Math.floor(seconds/60)+" min ago";
+  if(seconds<86400)return Math.floor(seconds/3600)+" hr ago";
+  if(seconds<604800)return Math.floor(seconds/86400)+" days ago";
+  if(seconds<2592000)return Math.floor(seconds/604800)+" weeks ago";
+  if(seconds<31536000)return Math.floor(seconds/2592000)+" months ago";
+  return Math.floor(seconds/31536000)+" years ago";
+}
+
 async function loadProfile(){
   try{
-    const u=await API.me();
+    const u=viewUserId?await API.getUser(viewUserId):await API.me();
     document.getElementById("avatar").textContent=u.full_name[0].toUpperCase();
     document.getElementById("disp-name").textContent=u.full_name;
     document.getElementById("disp-role").textContent=u.role.charAt(0).toUpperCase()+u.role.slice(1);
     document.getElementById("disp-phone").textContent=u.phone;
+    document.getElementById("disp-loc").textContent=[u.village,u.district,u.state].filter(Boolean).join(", ");
+    document.getElementById("disp-bio").textContent=u.bio||"";
     document.getElementById("disp-verified").innerHTML=u.is_verified?'<span style="color:var(--green);font-size:.85rem">✅ Verified</span>':'<span style="color:var(--amber);font-size:.85rem">⚠️ Not verified</span>';
-    document.getElementById("pf-name").value=u.full_name||"";document.getElementById("pf-email").value=u.email||"";document.getElementById("pf-phone").value=u.phone||"";document.getElementById("pf-village").value=u.village||"";document.getElementById("pf-district").value=u.district||"";document.getElementById("pf-bio").value=u.bio||"";
-    if(!u.is_verified)document.getElementById("verify-card").style.display="block";
-    const s=await API.sessions();document.getElementById("sessions-info").textContent=`${s.active_sessions} active session(s)`;
+    if(!viewUserId){
+      document.getElementById("pf-name").value=u.full_name||"";document.getElementById("pf-email").value=u.email||"";document.getElementById("pf-phone").value=u.phone||"";document.getElementById("pf-village").value=u.village||"";document.getElementById("pf-district").value=u.district||"";document.getElementById("pf-bio").value=u.bio||"";
+      if(!u.is_verified)document.getElementById("verify-card").style.display="block";
+      const s=await API.sessions();document.getElementById("sessions-info").textContent=`${s.active_sessions} active session(s)`;
+    }
+    await loadPosts(viewUserId);
   }catch(e){showToast(e.message,"error")}
 }
+
+async function loadPosts(fid){
+  const g=document.getElementById("posts-grid");
+  g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+  try{
+    const ps=fid?await API.getUserProducts(fid):await API.myProducts();
+    if(!ps.length){g.innerHTML=`<div style="grid-column:1/-1" class="empty-state"><div class="icon">🌱</div><p>${fid?"This farmer hasn't posted any products yet.":"You haven't posted any products yet."}</p></div>`;return}
+    g.innerHTML=ps.map(p=>`<div class="card" style="overflow:hidden;cursor:pointer" onclick='viewProduct(${JSON.stringify(p).replace(/'/g,"&#39;")})'>
+      <div style="position:relative">
+        ${p.image_url?`<img src="${p.image_url}" alt="${p.name}" style="width:100%;height:160px;object-fit:cover;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>`:`<span style="display:flex;width:100%;height:160px;align-items:center;justify-content:center;background:var(--green-pale);color:rgba(0,0,0,0.35);font-size:1rem">No Image</span>`}
+        ${p.image_url?`<span style="display:none;width:100%;height:160px;align-items:center;justify-content:center;background:var(--green-pale);color:rgba(0,0,0,0.35);font-size:1rem">No Image</span>`:''}
+        ${p.is_organic?`<span style="position:absolute;top:8px;left:8px;background:var(--green);color:white;padding:.2rem .6rem;border-radius:20px;font-size:.75rem;font-weight:600">🌿</span>`:''}
+      </div>
+      <div class="card-body" style="padding:.9rem 1rem">
+        <div style="font-weight:700;font-size:.95rem">${p.name}</div>
+        <div class="price-tag" style="font-size:1.05rem">${formatCurrency(p.price_per_kg)}/kg</div>
+        <div class="text-sm text-muted">📦 ${formatQty(p)} · ${p.district||""}</div>
+        <div class="text-sm text-muted">🕒 ${timeAgo(p.created_at)}</div>
+      </div>
+    </div>`).join("");
+  }catch(e){g.innerHTML=`<div style="grid-column:1/-1;color:red;text-align:center;padding:2rem">${e.message}</div>`}
+}
+
+function viewProduct(p){
+  if(typeof p==="string")p=JSON.parse(p);
+  const url=user.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html";
+  window.location.href=url+"?view_product="+p.id;
+}
+
 async function saveProfile(){
   const btn=document.getElementById("save-btn");btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
   try{await API.updateMe({full_name:document.getElementById("pf-name").value,email:document.getElementById("pf-email").value||null,bio:document.getElementById("pf-bio").value||null,village:document.getElementById("pf-village").value||null,district:document.getElementById("pf-district").value||null});showToast("Profile updated! ✅","success");loadProfile()}

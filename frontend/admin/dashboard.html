@@ -1,10 +1,12 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Admin – AgriMarket</title><link rel="stylesheet" href="/static/css/style.css"/><style>.tbl{width:100%;border-collapse:collapse;font-size:.88rem}.tbl th{background:var(--green);color:white;padding:.7rem .9rem;text-align:left}.tbl td{padding:.65rem .9rem;border-bottom:1px solid var(--border)}.tbl tr:hover td{background:var(--green-pale)}</style></head>
 <body>
-<nav class="navbar"><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket <span style="font-size:.7rem;opacity:.7;margin-left:.3rem">ADMIN</span></a>
+<nav class="navbar"><div style="display:flex;align-items:center;gap:.5rem"><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket <span style="font-size:.7rem;opacity:.7;margin-left:.3rem">ADMIN</span></a>
+  <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Menu">☰</button></div>
   <div style="display:flex;align-items:center;gap:1rem"><span style="color:rgba(255,255,255,.8);font-size:.9rem" id="admin-name"></span><a href="#" onclick="logout()" style="color:rgba(255,255,255,.7);font-size:.85rem;text-decoration:none">Logout</a></div>
 </nav>
 <div class="dashboard-layout">
-  <aside class="sidebar">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
     <a class="sidebar-item active" onclick="show('overview')"><span class="icon">📊</span> Overview</a>
     <a class="sidebar-item" onclick="show('users')"><span class="icon">👥</span> Users</a>
     <a class="sidebar-item" onclick="show('products')"><span class="icon">🌿</span> Products</a>
@@ -139,7 +141,7 @@
   </main>
 </div>
 
-<script src="/static/js/api.js"></script>
+<script src="/static/js/api.js?v=2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 if(!requireAuth())throw new Error();
@@ -164,23 +166,28 @@ function setKpiRange(r,btn){
   loadSeries();
 }
 
-function show(name){
-  document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
-  document.querySelectorAll(".sidebar-item").forEach(a=>a.classList.remove("active"));
-  document.getElementById("s-"+name).style.display="block";
-  if(name==="users"&&!allUsers.length)loadUsers();
-  if(name==="products")loadProducts();
-  if(name==="orders")loadOrders();
+function toggleMobileSidebar(){
+  var sidebar=document.getElementById("sidebar");
+  var overlay=document.getElementById("sidebar-overlay");
+  if(sidebar)sidebar.classList.toggle("mobile-open");
+  if(overlay)overlay.classList.toggle("open");
 }
 
-
 function show(name){
   document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
   document.querySelectorAll(".sidebar-item").forEach(a=>a.classList.remove("active"));
   document.getElementById("s-"+name).style.display="block";
+  var n=document.getElementById("n-"+name);if(n)n.classList.add("active");
   if(name==="users"&&!allUsers.length)loadUsers();
   if(name==="products")loadProducts();
   if(name==="orders"&&!allOrders.length)loadOrders();
+  // close mobile sidebar after navigation
+  if(window.innerWidth<=768){
+    var sidebar=document.getElementById("sidebar");
+    var overlay=document.getElementById("sidebar-overlay");
+    if(sidebar)sidebar.classList.remove("mobile-open");
+    if(overlay)overlay.classList.remove("open");
+  }
 }
 
 function upsertChart(key,config){

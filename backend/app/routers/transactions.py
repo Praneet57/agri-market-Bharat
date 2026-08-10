@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.security import get_current_user, require_buyer, require_farmer
 from app.models.user import User
 from app.models.demand import Demand
+from app.models.product import Product
 from app.models.order import Order
 from app.models.payment import Payment, Agreement, Rating
 from app.schemas import DemandCreate, DemandOut, OrderCreate, OrderOut, OrderStatusUpdate, PaymentCreate, PaymentVerify, RatingCreate, RatingOut
@@ -37,14 +38,29 @@ order_router = APIRouter(prefix="/orders", tags=["Orders"])
 
 @order_router.post("/", response_model=OrderOut, status_code=201)
 async def create_order(data: OrderCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Reduce product stock when buying from an existing listing
+    product = None
+    if data.product_id:
+        pr = await db.execute(select(Product).where(Product.id == data.product_id))
+        product = pr.scalar_one_or_none()
+        if not product:
+            raise HTTPException(404, "Product not found")
+        if data.quantity_kg > product.quantity_kg:
+            raise HTTPException(400, f"Only {product.quantity_kg}kg available in stock")
     total = round(data.quantity_kg * data.price_per_kg, 2)
     fee = round(total * 0.02, 2); net = round(total - fee, 2)
     order = Order(order_number=f"AGM-{uuid.uuid4().hex[:8].upper()}", buyer_id=current_user.id,
         farmer_id=data.farmer_id, product_id=data.product_id, demand_id=data.demand_id,
         quantity_kg=data.quantity_kg, price_per_kg=data.price_per_kg,
         total_amount=total, platform_fee=fee, net_amount=net,
-        delivery_address=data.delivery_address, notes=data.notes)
-    db.add(order); await db.flush(); await db.refresh(order)
+        delivery_address=data.delivery_address, district=data.district,
+        latitude=data.latitude, longitude=data.longitude, notes=data.notes)
+    db.add(order); await db.flush()
+    # Deduct ordered quantity from product stock
+    if product:
+        product.quantity_kg = max(0, product.quantity_kg - data.quantity_kg)
+        await db.flush()
+    await db.refresh(order)
     return OrderOut.model_validate(order)
 
 @order_router.get("/", response_model=List[OrderOut])
@@ -75,6 +91,14 @@ async def update_order_status(order_id: int, data: OrderStatusUpdate, current_us
     if data.status == "accepted": o.accepted_at = datetime.utcnow()
     elif data.status == "delivered": o.delivered_at = datetime.utcnow()
     elif data.status == "completed": o.completed_at = datetime.utcnow()
+    # Restore stock if order is cancelled or rejected
+    if data.status in ("cancelled", "rejected"):
+        if o.product_id:
+            pr = await db.execute(select(Product).where(Product.id == o.product_id))
+            prod = pr.scalar_one_or_none()
+            if prod:
+                prod.quantity_kg += o.quantity_kg
+                await db.flush()
     await db.flush(); return OrderOut.model_validate(o)
 
 payment_router = APIRouter(prefix="/payments", tags=["Payments"])
