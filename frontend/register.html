@@ -26,7 +26,6 @@
 </div>
 <script src="/static/js/api.js?v=2"></script>
 <script>
-redirectIfLoggedIn();
 const params=new URLSearchParams(window.location.search);
 if(params.get("role")==="buyer")selRole("buyer");
 function selRole(r){document.getElementById("role").value=r;document.getElementById("rf").classList.toggle("selected",r==="farmer");document.getElementById("rb").classList.toggle("selected",r==="buyer")}

@@ -6,6 +6,7 @@ from enum import Enum
 
 class UserRole(str, Enum):
 
+    farmer = "farmer"
     buyer = "buyer"
     admin = "admin"
 

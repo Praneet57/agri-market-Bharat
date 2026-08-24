@@ -6,6 +6,14 @@ function clearAuth(){localStorage.removeItem("access_token");localStorage.remove
 function requireAuth(){if(!getToken()){window.location.href="/login.html";return false}return true}
 function redirectIfLoggedIn(){const u=getUser();if(u)window.location.href=u.role==="farmer"?"/farmer/dashboard.html":"/buyer/dashboard.html"}
 function logout(){clearAuth();window.location.href="/"}
+function toQueryString(params={}){
+  const sp=new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if(value === undefined || value === null || value === "") return;
+    sp.append(key, String(value));
+  });
+  return sp.toString();
+}
 
 async function apiFetch(path,options={}){
   const token=getToken();
@@ -60,6 +68,8 @@ const API={
   logoutAll:()=>apiFetch("/auth/logout-all",{method:"POST"}),
   refresh:(rt)=>apiFetch("/auth/refresh",{method:"POST",body:JSON.stringify({refresh_token:rt})}),
   me:()=>apiFetch("/auth/me"),
+  requestFarmerConversion:(terms_accepted)=>apiFetch("/auth/farmer-conversion/request",{method:"POST",body:JSON.stringify({terms_accepted})}),
+  farmerConversionStatus:()=>apiFetch("/auth/farmer-conversion/status"),
   updateMe:(d)=>apiFetch("/auth/me",{method:"PUT",body:JSON.stringify(d)}),
   changePassword:(d)=>apiFetch("/auth/change-password",{method:"POST",body:JSON.stringify(d)}),
   forgotPassword:(phone)=>apiFetch("/auth/forgot-password",{method:"POST",body:JSON.stringify({phone})}),
@@ -79,7 +89,8 @@ const API={
     if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.detail||`Error ${res.status}`)}
     return res.json();
   },
-  listProducts:(p={})=>apiFetch("/products/?"+new URLSearchParams(p)),
+  listProducts:(p={})=>apiFetch("/products/?"+toQueryString(p)),
+  recommendedProducts:(p={})=>apiFetch("/products/recommended?"+toQueryString(p)),
   getUserProducts:(id)=>apiFetch(`/products/?farmer_id=${id}&limit=100`),
   myProducts:()=>apiFetch("/products/my"),
   getProduct:(id)=>apiFetch(`/products/${id}`),
@@ -106,26 +117,24 @@ const API={
   adminKpis:(range="today")=>apiFetch(`/admin/kpis?range=${encodeURIComponent(range)}`),
   adminRevenueSeries:(days=14)=>apiFetch(`/admin/analytics/revenue-series?days=${encodeURIComponent(days)}`),
   adminOrdersSeries:(days=14,status="")=>{
-    const p=new URLSearchParams({days});
-    if(status) p.set('status',status);
-    return apiFetch(`/admin/analytics/orders-series?${p.toString()}`);
+    const p=toQueryString({days,status:status||undefined});
+    return apiFetch(`/admin/analytics/orders-series?${p}`);
   },
   adminTopProducts:(limit=10)=>apiFetch(`/admin/analytics/top-products?limit=${encodeURIComponent(limit)}`),
   adminSalesByCategory:(limit=10)=>apiFetch(`/admin/analytics/sales-by-category?limit=${encodeURIComponent(limit)}`),
   adminSalesByPaymentMethod:()=>apiFetch(`/admin/analytics/sales-by-payment-method`),
   adminListOrders:(p={})=>{
-    const params=new URLSearchParams(p);
-    return apiFetch(`/admin/orders?${params.toString()}`);
+    return apiFetch(`/admin/orders?${toQueryString(p)}`);
   },
   // Backward-compat aliases (some pages may reference these)
   adminOrders: (p={})=>API.adminListOrders(p),
 
   adminListProducts:(p={})=>{
-
-    const params=new URLSearchParams(p);
-    // p may contain active:boolean; URLSearchParams will stringify it.
-    return apiFetch(`/admin/products?${params.toString()}`);
+    return apiFetch(`/admin/products?${toQueryString(p)}`);
   },
+  adminFarmerConversions:(status="pending")=>apiFetch(`/admin/farmer-conversions?status=${encodeURIComponent(status)}`),
+  adminApproveFarmer:(id)=>apiFetch(`/admin/farmer-conversions/approve/${id}`,{method:"POST"}),
+  adminApproveAllFarmers:(ids)=>apiFetch("/admin/farmer-conversions/approve-all",{method:"POST",body:JSON.stringify({user_ids:ids})}),
 };
 
 

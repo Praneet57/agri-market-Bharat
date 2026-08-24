@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import require_admin
@@ -13,6 +14,9 @@ from app.models.payment import Payment
 from app.schemas import UserOut
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+class FarmerConversionApproval(BaseModel):
+    user_ids: List[int]
 
 
 def _utc_now() -> datetime:
@@ -513,6 +517,66 @@ async def search_users(
         out.append(u_out)
 
     return out
+
+@router.get("/farmer-conversions")
+async def list_farmer_conversions(
+    status: str = "pending",
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_admin),
+):
+    q = select(User).where(User.farmer_conversion_status == status).order_by(User.farmer_conversion_requested_at.asc())
+    users = (await db.execute(q)).scalars().all()
+    out = []
+    for u in users:
+        purchase_count, purchase_total = (await db.execute(
+            select(func.count(Order.id), func.sum(Order.total_amount)).where(Order.buyer_id == u.id)
+        )).one()
+        sell_count, sell_total = (await db.execute(
+            select(func.count(Order.id), func.sum(Order.total_amount)).where(Order.farmer_id == u.id)
+        )).one()
+        out.append({
+            "id": u.id, "full_name": u.full_name, "phone": u.phone, "email": u.email,
+            "district": u.district, "requested_at": u.farmer_conversion_requested_at,
+            "terms_accepted": bool(u.farmer_terms_accepted), "status": u.farmer_conversion_status,
+            "purchase_orders": int(purchase_count or 0), "purchase_total": round(float(purchase_total or 0), 2),
+            "sell_orders": int(sell_count or 0), "sell_total": round(float(sell_total or 0), 2),
+        })
+    return out
+
+async def _approve_farmer_conversion(user_id: int, admin_id: int, db: AsyncSession):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, f"User {user_id} not found")
+    if user.role == "admin":
+        raise HTTPException(400, f"Admin user {user_id} cannot be converted")
+    if user.role == "farmer":
+        return False
+    if user.farmer_conversion_status != "pending":
+        raise HTTPException(400, f"User {user_id} has no pending conversion request")
+    user.role = "farmer"
+    user.farmer_conversion_status = "approved"
+    user.farmer_conversion_reviewed_at = datetime.now(timezone.utc)
+    user.farmer_conversion_reviewed_by = admin_id
+    return True
+
+@router.post("/farmer-conversions/approve/{user_id}")
+async def approve_farmer_conversion(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    changed = await _approve_farmer_conversion(user_id, admin.id, db)
+    await db.flush()
+    return {"user_id": user_id, "approved": changed}
+
+@router.post("/farmer-conversions/approve-all")
+async def approve_all_farmer_conversions(data: FarmerConversionApproval, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
+    approved = 0
+    for user_id in data.user_ids:
+        try:
+            if await _approve_farmer_conversion(user_id, admin.id, db):
+                approved += 1
+        except HTTPException:
+            continue
+    await db.flush()
+    return {"approved": approved, "requested": len(data.user_ids)}
 
 
 @router.get("/analytics/revenue-series")

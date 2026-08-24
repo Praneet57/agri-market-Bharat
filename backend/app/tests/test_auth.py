@@ -8,6 +8,11 @@ class TestRegister:
         assert r.status_code == 201
         assert "access_token" in r.json()
 
+    async def test_register_buyer_role_is_allowed(self, client: AsyncClient):
+        r = await client.post("/api/v1/auth/register", json={"full_name":"Buyer One","phone":"9200000009","password":"test1234","role":"buyer"})
+        assert r.status_code == 201
+        assert r.json()["user"]["role"] == "buyer"
+
     async def test_duplicate_phone(self, client: AsyncClient):
         d = {"full_name":"X","phone":"9200000002","password":"p123456","role":"farmer"}
         await client.post("/api/v1/auth/register", json=d)

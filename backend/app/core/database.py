@@ -49,6 +49,21 @@ async def _ensure_columns(conn):
             "ALTER TABLE orders ADD COLUMN longitude FLOAT NULL"
         ))
 
+    user_cols = await conn.execute(text(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='users'"
+    ))
+    user_existing = {r[0] for r in user_cols.fetchall()}
+    user_columns = {
+        "farmer_conversion_status": "VARCHAR(20) NULL",
+        "farmer_terms_accepted": "BOOLEAN DEFAULT FALSE",
+        "farmer_conversion_requested_at": "TIMESTAMP WITH TIME ZONE NULL",
+        "farmer_conversion_reviewed_at": "TIMESTAMP WITH TIME ZONE NULL",
+        "farmer_conversion_reviewed_by": "INTEGER NULL",
+    }
+    for name, definition in user_columns.items():
+        if name not in user_existing:
+            await conn.execute(text(f"ALTER TABLE users ADD COLUMN {name} {definition}"))
+
 async def init_db():
     from app.models import user, product, demand, order, payment  # noqa
     async with engine.begin() as conn:

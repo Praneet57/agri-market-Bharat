@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Farmer Dashboard – AgriMarket</title><link rel="stylesheet" href="/static/css/style.css"/></head>
-<body>
+<body class="farmer-dashboard">
 <nav class="navbar"><div style="display:flex;align-items:center;gap:.5rem"><a class="navbar-brand" href="/"><span>🌾</span> AgriMarket</a>
   <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Menu">☰</button></div>
   <div style="display:flex;align-items:center;gap:.75rem"><div class="avatar" id="nav-avatar">F</div><span style="color:white;font-size:.9rem" id="nav-name"></span><a href="#" onclick="logout()" style="color:rgba(255,255,255,0.7);font-size:.85rem;text-decoration:none">Logout</a></div>
@@ -10,6 +10,7 @@
     <a class="sidebar-item active" id="n-overview" onclick="show('overview')"><span class="icon">📊</span> Overview</a>
     <a class="sidebar-item" id="n-products" onclick="show('products')"><span class="icon">🌿</span> My Products</a>
     <a class="sidebar-item" id="n-add" onclick="show('add')"><span class="icon">➕</span> Add Product</a>
+    <a class="sidebar-item" id="n-buy" onclick="show('buy')"><span class="icon">🛒</span> Buy Products</a>
     <a class="sidebar-item" id="n-demands" onclick="show('demands')"><span class="icon">📢</span> Buyer Demands</a>
     <a class="sidebar-item" id="n-orders" onclick="show('orders')"><span class="icon">📦</span> Orders</a>
     <a class="sidebar-item" id="n-chat" onclick="show('chat')"><span class="icon">💬</span> Messages</a>
@@ -58,6 +59,15 @@
         <button class="btn btn-green" id="add-btn" onclick="addProduct()">List Product</button>
       </div></div>
     </section>
+    <section id="s-buy" style="display:none">
+      <h2 class="section-title">🛒 Buy Products</h2>
+      <div class="card" style="margin-bottom:1.5rem"><div class="card-body" style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
+        <div><label class="text-sm" style="display:block;margin-bottom:.3rem">Category</label><select id="bc-cat" class="form-control" style="width:130px"><option value="">All</option><option>Fruits</option><option>Vegetables</option><option>Grains</option><option>Pulses</option><option>Spices</option></select></div>
+        <div><label class="text-sm" style="display:block;margin-bottom:.3rem">District</label><input type="text" id="bc-dist" class="form-control" placeholder="District" style="width:140px"/></div>
+        <button class="btn btn-green" onclick="loadBuyMarket()">🔍 Search</button>
+      </div></div>
+      <div class="grid-2" id="buy-grid"></div>
+    </section>
     <section id="s-demands" style="display:none">
       <div class="row-between mb-2"><h2 class="section-title" style="margin:0">📢 Buyer Demands</h2><button class="btn btn-outline-green" onclick="loadDemands()">🔄 Refresh</button></div>
       <div class="grid-2" id="demands-grid"></div>
@@ -80,6 +90,22 @@
     </section>
   </main>
 </div>
+<div id="buy-order-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:480px;margin:1rem;max-height:90vh;overflow:auto">
+    <div class="card-header"><strong id="buy-modal-title">Place Order</strong><button onclick="closeBuyModal()" style="background:none;border:none;font-size:1.3rem;cursor:pointer">✕</button></div>
+    <div class="card-body">
+      <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:1rem">
+        <img id="buy-modal-image" alt="Product" style="width:86px;height:70px;object-fit:cover;border-radius:8px;background:var(--green-pale)"/>
+        <div><div id="buy-modal-product" style="font-weight:700"></div><div id="buy-modal-price" class="price-tag"></div><div id="buy-modal-stock" class="text-sm text-muted"></div></div>
+      </div>
+      <div class="form-group"><label>Quantity (kg) *</label><input type="number" id="buy-qty" class="form-control" min="0.01" step="0.01" oninput="updateBuyTotal()"/></div>
+      <div class="form-group"><label>Delivery District *</label><input type="text" id="buy-dist" class="form-control"/></div>
+      <div class="form-group"><label>Delivery Address *</label><textarea id="buy-address" class="form-control" rows="3" placeholder="Full delivery address"></textarea></div>
+      <div style="background:var(--green-pale);border-radius:8px;padding:.7rem .85rem;margin-bottom:1rem"><div class="row-between"><span>Total</span><strong id="buy-total">₹0.00</strong></div></div>
+      <button class="btn btn-green btn-full" id="buy-submit" onclick="submitBuyOrder()">🛒 Place Order</button>
+    </div>
+  </div>
+</div>
 <script src="/static/js/api.js?v=2"></script>
 <script>
 if(!requireAuth()){ /* redirected to login */ }
@@ -94,6 +120,7 @@ function show(name){
   document.getElementById("s-"+name).style.display="block";
   const n=document.getElementById("n-"+name);if(n)n.classList.add("active");
   if(name==="products")loadMyProducts();
+  if(name==="buy")loadBuyMarket();
   if(name==="demands")loadDemands();
   if(name==="orders")loadOrders();
   if(name==="chat")loadChatRooms();
@@ -178,6 +205,49 @@ async function editPrice(id,cur){const p=prompt("New price per kg (₹):",cur);i
 async function delProduct(id){if(!confirm("Remove this listing?"))return;try{await API.deleteProduct(id);showToast("Removed","info");loadMyProducts()}catch(e){showToast(e.message,"error")}}
 async function findBuyers(id){try{const m=await API.matchForProduct(id);showToast(m.length?`Found ${m.length} matching demands! 🎯`:"No matching demands nearby",m.length?"success":"info")}catch(e){showToast(e.message,"error")}}
 
+async function loadBuyMarket(){
+  const grid=document.getElementById("buy-grid");
+  grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
+  try{
+    const params={limit:40};
+    const category=document.getElementById("bc-cat").value;
+    const district=document.getElementById("bc-dist").value.trim();
+    if(category)params.category=category;
+    if(district)params.district=district;
+    const products=await API.listProducts(params);
+    if(!products.length){grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="icon">🛒</div><p>No products match your filters</p></div>';return}
+    grid.innerHTML=products.map(p=>`<div class="card" style="overflow:hidden"><div style="height:170px;background:var(--green-pale)">${p.image_url?`<img src="${p.image_url}" alt="${p.name}" style="width:100%;height:170px;object-fit:cover;display:block" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span style="display:none;width:100%;height:170px;align-items:center;justify-content:center;color:rgba(0,0,0,.35)">No Image</span>`:`<span style="display:flex;width:100%;height:170px;align-items:center;justify-content:center;color:rgba(0,0,0,.35)">No Image</span>`}</div><div class="card-body"><div class="row-between"><strong>${p.name}</strong><span class="tag">${p.category}</span></div><div class="price-tag" style="margin:.4rem 0">${formatCurrency(p.price_per_kg)}/kg</div><div class="text-sm text-muted">📦 ${formatQty(p)} available · Min ${p.min_order_kg}kg</div>${p.district?`<div class="text-sm text-muted">📍 ${p.district}</div>`:''}</div><div class="card-footer"><button class="btn btn-green btn-sm" onclick='buyProduct(${JSON.stringify(p).replace(/'/g,"&#39;")})'>🛒 Order Now</button></div></div>`).join("");
+  }catch(e){grid.innerHTML=`<div style="grid-column:1/-1;color:red">${e.message}</div>`}
+}
+
+let buyProductSelection=null;
+function buyProduct(product){
+  buyProductSelection=product;
+  document.getElementById("buy-modal-title").textContent="Order: "+product.name;
+  document.getElementById("buy-modal-product").textContent=product.name;
+  document.getElementById("buy-modal-price").textContent=formatCurrency(product.price_per_kg)+"/kg";
+  document.getElementById("buy-modal-stock").textContent=formatQty(product)+" available · Min "+product.min_order_kg+"kg";
+  const image=document.getElementById("buy-modal-image");
+  image.src=product.image_url||"";
+  image.style.display=product.image_url?"block":"none";
+  document.getElementById("buy-qty").value=product.min_order_kg;
+  document.getElementById("buy-qty").min=product.min_order_kg;
+  document.getElementById("buy-qty").max=product.quantity_kg;
+  document.getElementById("buy-dist").value=user.district||product.district||"";
+  document.getElementById("buy-address").value="";
+  updateBuyTotal();
+  document.getElementById("buy-order-modal").style.display="flex";
+}
+function closeBuyModal(){document.getElementById("buy-order-modal").style.display="none";buyProductSelection=null}
+function updateBuyTotal(){const qty=parseFloat(document.getElementById("buy-qty").value)||0;document.getElementById("buy-total").textContent=formatCurrency(qty*(buyProductSelection?.price_per_kg||0))}
+async function submitBuyOrder(){
+  const product=buyProductSelection,quantity=parseFloat(document.getElementById("buy-qty").value),district=document.getElementById("buy-dist").value.trim(),address=document.getElementById("buy-address").value.trim();
+  if(!product||!quantity||quantity<product.min_order_kg||quantity>product.quantity_kg){showToast("Enter a quantity within the available stock and minimum order","error");return}
+  if(!district||!address){showToast("Enter delivery district and address","error");return}
+  const btn=document.getElementById("buy-submit");btn.disabled=true;btn.innerHTML='<span class="loader"></span>';
+  try{await API.createOrder({product_id:product.id,farmer_id:product.farmer_id,quantity_kg:quantity,price_per_kg:product.price_per_kg,district,delivery_address:address});closeBuyModal();showToast("Order placed! 🎉","success");show("orders")}catch(e){showToast(e.message,"error")}finally{btn.disabled=false;btn.innerHTML="🛒 Place Order"}
+}
+
 async function loadDemands(){
   const g=document.getElementById("demands-grid");
   g.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--muted)">Loading…</div>';
@@ -219,6 +289,12 @@ async function loadProfile(){
 async function saveProfile(){try{await API.updateMe({full_name:document.getElementById("pf-name").value,email:document.getElementById("pf-email").value||null,bio:document.getElementById("pf-bio").value,district:document.getElementById("pf-dist").value});showToast("Profile saved! ✅","success")}catch(e){showToast(e.message,"error")}}
 
 loadOverview();
+
+const farmerConversionMessage=localStorage.getItem("farmer_conversion_success");
+if(farmerConversionMessage){
+  localStorage.removeItem("farmer_conversion_success");
+  setTimeout(()=>showToast(farmerConversionMessage,"success"),350);
+}
 
 function toggleMobileSidebar(){
   const sidebar=document.getElementById("sidebar");

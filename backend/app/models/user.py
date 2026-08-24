@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, Enum, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -26,6 +26,11 @@ class User(Base):
     state = Column(String(100), nullable=True)
     profile_image = Column(String(500), nullable=True)
     bio = Column(String(500), nullable=True)
+    farmer_conversion_status = Column(String(20), nullable=True)
+    farmer_terms_accepted = Column(Boolean, default=False)
+    farmer_conversion_requested_at = Column(DateTime(timezone=True), nullable=True)
+    farmer_conversion_reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    farmer_conversion_reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     products = relationship("Product", back_populates="farmer", cascade="all, delete-orphan")

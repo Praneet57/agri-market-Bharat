@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from app.core.database import get_db
 from app.core.redis import get_redis
@@ -162,6 +163,35 @@ async def verify_phone(data: VerifyReq, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+class FarmerConversionRequest(BaseModel):
+    terms_accepted: bool
+
+@router.post("/farmer-conversion/request")
+async def request_farmer_conversion(data: FarmerConversionRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if current_user.role == "admin":
+        raise HTTPException(403, "Admin accounts cannot be converted")
+    if current_user.role == "farmer":
+        raise HTTPException(400, "Account is already a farmer account")
+    if not data.terms_accepted:
+        raise HTTPException(400, "You must accept the terms and agreement")
+    if current_user.farmer_conversion_status == "pending":
+        raise HTTPException(400, "Your conversion request is already pending")
+    current_user.farmer_conversion_status = "pending"
+    current_user.farmer_terms_accepted = True
+    current_user.farmer_conversion_requested_at = datetime.now(timezone.utc)
+    current_user.farmer_conversion_reviewed_at = None
+    current_user.farmer_conversion_reviewed_by = None
+    await db.flush()
+    return {"status": "pending", "message": "Request sent to admin for review"}
+
+@router.get("/farmer-conversion/status")
+async def farmer_conversion_status(current_user: User = Depends(get_current_user)):
+    return {
+        "status": current_user.farmer_conversion_status or "not_requested",
+        "role": current_user.role,
+        "requested_at": current_user.farmer_conversion_requested_at,
+    }
 
 @router.put("/me", response_model=UserOut)
 async def update_profile(data: UserUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

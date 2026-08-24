@@ -9,6 +9,7 @@
   <aside class="sidebar" id="sidebar">
     <a class="sidebar-item active" onclick="show('overview')"><span class="icon">📊</span> Overview</a>
     <a class="sidebar-item" onclick="show('users')"><span class="icon">👥</span> Users</a>
+    <a class="sidebar-item" onclick="show('conversions')"><span class="icon">🌱</span> Farmer Requests</a>
     <a class="sidebar-item" onclick="show('products')"><span class="icon">🌿</span> Products</a>
     <a class="sidebar-item" onclick="show('orders')"><span class="icon">📦</span> Orders</a>
   </aside>
@@ -104,6 +105,12 @@
       </thead><tbody id="users-body"><tr><td colspan="13" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
     </section>
 
+    <section id="s-conversions" style="display:none">
+      <div class="row-between" style="margin-bottom:1rem"><h2 class="section-title" style="margin:0">🌱 Farmer Conversion Requests</h2><button class="btn btn-green" onclick="approveSelectedConversions()">✅ Approve Selected</button></div>
+      <p class="text-muted" style="margin-bottom:1rem">Review the buyer's accepted terms and transaction history before granting farmer selling access.</p>
+      <div class="card" style="overflow-x:auto"><table class="tbl"><thead><tr><th><input type="checkbox" id="conversion-select-all" onchange="toggleAllConversions(this.checked)"/></th><th>Buyer</th><th>Contact</th><th>District</th><th>Requested</th><th>Terms</th><th>Purchases</th><th>Purchase Total</th><th>Sells</th><th>Sell Total</th><th>Action</th></tr></thead><tbody id="conversions-body"><tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr></tbody></table></div>
+    </section>
+
     <section id="s-products" style="display:none">
       <div class="row-between" style="margin-bottom:1rem"><h2 class="section-title" style="margin:0">🌿 Products</h2>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -179,6 +186,7 @@ function show(name){
   document.getElementById("s-"+name).style.display="block";
   var n=document.getElementById("n-"+name);if(n)n.classList.add("active");
   if(name==="users"&&!allUsers.length)loadUsers();
+  if(name==="conversions")loadConversions();
   if(name==="products")loadProducts();
   if(name==="orders"&&!allOrders.length)loadOrders();
   // close mobile sidebar after navigation
@@ -331,6 +339,28 @@ function filterUsers(){
 }
 
 async function toggleUser(id){try{const r=await apiFetch(`/admin/users/${id}/toggle-active`,{method:"PATCH"});showToast(`User ${r.is_active?"activated":"deactivated"}`,"info");loadUsers()}catch(e){showToast(e.message,"error")}}
+
+let farmerConversions=[];
+async function loadConversions(){
+  const body=document.getElementById("conversions-body");
+  body.innerHTML='<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--muted)">Loading…</td></tr>';
+  try{
+    farmerConversions=await API.adminFarmerConversions("pending");
+    document.getElementById("conversion-select-all").checked=false;
+    body.innerHTML=farmerConversions.length?farmerConversions.map(u=>`<tr><td><input type="checkbox" class="conversion-check" value="${u.id}"/></td><td><strong>${u.full_name}</strong><div class="text-sm text-muted">ID ${u.id}</div></td><td>${u.phone}<br/>${u.email||"—"}</td><td>${u.district||"—"}</td><td>${u.requested_at?formatDate(u.requested_at):"—"}</td><td>${u.terms_accepted?"✅ Accepted":"❌ Missing"}</td><td>${u.purchase_orders}</td><td>${formatCurrency(u.purchase_total)}</td><td>${u.sell_orders}</td><td>${formatCurrency(u.sell_total)}</td><td><button class="btn btn-green btn-sm" onclick="approveConversion(${u.id})">Approve</button></td></tr>`).join(""):'<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--muted)">No pending requests</td></tr>';
+  }catch(e){body.innerHTML=`<tr><td colspan="11" style="color:red;text-align:center">${e.message}</td></tr>`}
+}
+function toggleAllConversions(checked){document.querySelectorAll(".conversion-check").forEach(box=>box.checked=checked)}
+async function approveConversion(id){
+  if(!confirm("Approve this buyer as a farmer?"))return;
+  try{await API.adminApproveFarmer(id);showToast("Farmer conversion approved","success");loadConversions()}catch(e){showToast(e.message,"error")}
+}
+async function approveSelectedConversions(){
+  const ids=[...document.querySelectorAll(".conversion-check:checked")].map(box=>Number(box.value));
+  if(!ids.length){showToast("Select at least one request","error");return}
+  if(!confirm(`Approve ${ids.length} farmer conversion request(s)?`))return;
+  try{const result=await API.adminApproveAllFarmers(ids);showToast(`${result.approved} request(s) approved`,"success");loadConversions()}catch(e){showToast(e.message,"error")}
+}
 
 async function loadProducts(){
   try{

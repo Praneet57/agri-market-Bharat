@@ -6,7 +6,7 @@ import uuid, hmac, hashlib
 from datetime import datetime
 from app.core.database import get_db
 from app.core.config import settings
-from app.core.security import get_current_user, require_buyer, require_farmer
+from app.core.security import get_current_user, require_buyer, require_farmer, require_marketplace_user
 from app.models.user import User
 from app.models.demand import Demand
 from app.models.product import Product
@@ -37,7 +37,7 @@ async def my_demands(current_user: User = Depends(require_buyer), db: AsyncSessi
 order_router = APIRouter(prefix="/orders", tags=["Orders"])
 
 @order_router.post("/", response_model=OrderOut, status_code=201)
-async def create_order(data: OrderCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def create_order(data: OrderCreate, current_user: User = Depends(require_marketplace_user), db: AsyncSession = Depends(get_db)):
     # Reduce product stock when buying from an existing listing
     product = None
     if data.product_id:
@@ -45,6 +45,10 @@ async def create_order(data: OrderCreate, current_user: User = Depends(get_curre
         product = pr.scalar_one_or_none()
         if not product:
             raise HTTPException(404, "Product not found")
+        if product.farmer_id == current_user.id:
+            raise HTTPException(400, "You cannot buy your own product")
+        if data.farmer_id != product.farmer_id:
+            raise HTTPException(400, "Product seller does not match the order seller")
         if data.quantity_kg > product.quantity_kg:
             raise HTTPException(400, f"Only {product.quantity_kg}kg available in stock")
     total = round(data.quantity_kg * data.price_per_kg, 2)

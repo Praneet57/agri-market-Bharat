@@ -128,6 +128,11 @@ async def require_buyer(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Buyer access only")
     return current_user
 
+async def require_marketplace_user(current_user=Depends(get_current_user)):
+    if current_user.role == "admin":
+        raise HTTPException(status_code=403, detail="Admin marketplace actions are not allowed")
+    return current_user
+
 async def require_admin(current_user=Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access only")
