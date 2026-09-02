@@ -72,3 +72,21 @@ class TestOrders:
         br = await client.patch(f"/api/v1/orders/{oid}/status", headers={"Authorization": f"Bearer {farmer_token}"},
             json={"status":"completed"})
         assert br.status_code == 400
+
+    async def test_other_farmer_cannot_manage_order(self, client: AsyncClient, farmer_token, buyer_token):
+        fm = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {farmer_token}"})
+        farmer_id = fm.json()["id"]
+        pr = await client.post("/api/v1/products", headers={"Authorization": f"Bearer {farmer_token}"},
+            json={"name":"Protected Grain","category":"Grains","quantity_kg":100,"price_per_kg":50})
+        pid = pr.json()["id"]
+        cr = await client.post("/api/v1/orders", headers={"Authorization": f"Bearer {buyer_token}"},
+            json={"product_id":pid,"farmer_id":farmer_id,"quantity_kg":10,"price_per_kg":50})
+        assert cr.status_code == 201; oid = cr.json()["id"]
+
+        await client.post("/api/v1/auth/register", json={"full_name":"Other Farmer","phone":"9111111003","password":"farmer123","role":"farmer","district":"Madurai"})
+        other_farmer = await client.post("/api/v1/auth/login", json={"phone":"9111111003","password":"farmer123"})
+        other_farmer_token = other_farmer.json()["access_token"]
+
+        r = await client.patch(f"/api/v1/orders/{oid}/status", headers={"Authorization": f"Bearer {other_farmer_token}"},
+            json={"status":"accepted"})
+        assert r.status_code == 403

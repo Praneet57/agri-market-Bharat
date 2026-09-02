@@ -33,6 +33,18 @@
           <div class="form-group" style="grid-column:1/-1"><label>Product Name *</label><input type="text" id="p-name" class="form-control" placeholder="e.g. Alphonso Mangoes"/></div>
           <div class="form-group"><label>Category *</label><select id="p-cat" class="form-control"><option value="">Select</option><option>Fruits</option><option>Vegetables</option><option>Grains</option><option>Pulses</option><option>Spices</option><option>Oilseeds</option><option>Other</option></select></div>
           <div class="form-group"><label>District</label><input type="text" id="p-dist" class="form-control" placeholder="District"/></div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>📍 Farm Location / Address</label>
+            <textarea id="p-location" class="form-control" rows="2" placeholder="Enter your farm address or choose current location"></textarea>
+            <div style="display:flex;gap:.5rem;align-items:center;margin-top:.5rem;flex-wrap:wrap">
+              <button class="btn btn-outline-green btn-sm" type="button" onclick="useCurrentFarmLocation()">📍 Use my current location</button>
+            </div>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>📍 Pin Farm Location <span class="text-muted" style="font-weight:400;font-size:.8rem">(required for location matching)</span></label>
+            <div id="p-map" style="width:100%;height:160px;background:#eef2ee;border:1px solid #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.85rem">Loading map…</div>
+            <div class="text-sm text-muted" id="p-map-coords" style="margin-top:.3rem">Choose your current farm location or tap the map to update the district automatically.</div>
+          </div>
           <div class="form-group"><label>Quantity *</label><div style="display:flex;gap:.5rem"><input type="number" id="p-qty" class="form-control" placeholder="500" min="0.0001" style="flex:1"/><select id="p-unit" class="form-control" style="width:90px"><option value="kg">kg</option><option value="ton">ton</option><option value="gram">gram</option></select></div></div>
           <div class="form-group"><label>Price/kg (₹) *</label><input type="number" id="p-price" class="form-control" placeholder="45" step=".01" min=".01"/></div>
           <div class="form-group"><label>Min Order (kg)</label><input type="number" id="p-min" class="form-control" value="10"/></div>
@@ -106,6 +118,9 @@
     </div>
   </div>
 </div>
+<script>
+  window.GOOGLE_MAPS_KEY = window.GOOGLE_MAPS_KEY || "AIzaSyCxPrZozVZhaON7D8wz5C1AIt7bOPuKcvs";
+</script>
 <script src="/static/js/api.js?v=2"></script>
 <script>
 if(!requireAuth()){ /* redirected to login */ }
@@ -113,6 +128,147 @@ const user=getUser();
 document.getElementById("nav-avatar").textContent=user.full_name[0].toUpperCase();
 document.getElementById("nav-name").textContent=user.full_name.split(" ")[0];
 const ge=n=>"";
+
+const GOOGLE_MAPS_KEY = (window.GOOGLE_MAPS_KEY || "").trim();
+let productMap = null;
+let productMarker = null;
+let productGeocoder = null;
+let productLatLng = null;
+
+function loadMapScript(cb){
+  if(!GOOGLE_MAPS_KEY || GOOGLE_MAPS_KEY.includes("PASTE_")){
+    document.getElementById("p-map") && (document.getElementById("p-map").innerHTML = '<span style="padding:1rem;text-align:center">Map disabled — add a valid Google Maps API key to window.GOOGLE_MAPS_KEY.</span>');
+    return;
+  }
+  if(window.google && window.google.maps){cb();return}
+  if(document.querySelector('script[data-google-maps]')){
+    const existing=document.querySelector('script[data-google-maps]');
+    existing.addEventListener('load', cb, { once: true });
+    return;
+  }
+  const s=document.createElement("script");
+  s.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&callback=__gmapsReady`;
+  s.async=true;
+  s.defer=true;
+  s.setAttribute('data-google-maps','true');
+  window.__gmapsReady=cb;
+  document.head.appendChild(s);
+}
+
+function fillFarmLocationFromCoords(lat, lng){
+  if (!lat || !lng) return;
+
+  const districtInput = document.getElementById("p-dist");
+  const coords = document.getElementById("p-map-coords");
+
+  if (productGeocoder) {
+    productGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      let district = null;
+
+      if (status === 'OK' && results && results.length) {
+        district = results[0].address_components.find(part =>
+          part.types.includes('administrative_area_level_2') ||
+          part.types.includes('locality') ||
+          part.types.includes('administrative_area_level_1')
+        );
+      }
+
+      if (districtInput && district) {
+        districtInput.value = district.long_name.trim();
+      }
+
+      if (coords) {
+        coords.textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)} · ${district ? district.long_name : 'Location selected'}`;
+      }
+    });
+    return;
+  }
+
+  if (districtInput && !districtInput.value.trim()) {
+    districtInput.value = user?.district || "";
+  }
+
+  if (coords) {
+    coords.textContent = `📍 ${lat.toFixed(6)}, ${lng.toFixed(6)} · Location selected`;
+  }
+}
+
+function useCurrentFarmLocation(){
+  if (!navigator.geolocation) {
+    showToast("This browser does not support location detection.", "error");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const ll = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    productLatLng = ll;
+    if (productMap) {
+      productMap.setCenter(ll);
+      productMap.setZoom(14);
+      productMarker.setPosition(ll);
+    }
+    fillFarmLocationFromCoords(ll.lat, ll.lng);
+    showToast("Current farm location detected and filled automatically.", "success");
+  }, () => {
+    showToast("Location access was denied. Please type the farm address manually.", "error");
+  }, { enableHighAccuracy: true, timeout: 12000 });
+}
+
+function initFarmerProductMap(){
+  if(!GOOGLE_MAPS_KEY || GOOGLE_MAPS_KEY.includes("PASTE_")){
+    const el=document.getElementById("p-map");
+    if(el) el.innerHTML='<span style="padding:1rem;text-align:center">Map disabled — add a valid Google Maps API key to window.GOOGLE_MAPS_KEY.</span>';
+    return;
+  }
+  const defaultPos={lat:20.5937,lng:78.9629};
+  loadMapScript(()=>{
+    const el=document.getElementById("p-map");
+    if(!el) return;
+    productMap = new google.maps.Map(el,{center:defaultPos,zoom:5});
+    productGeocoder = new google.maps.Geocoder();
+    productMarker = new google.maps.Marker({map:productMap,position:defaultPos,draggable:true});
+    productLatLng = null;
+
+    google.maps.event.addListener(productMap, "click", e => {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      productMarker.setPosition(e.latLng);
+      productLatLng = { lat, lng };
+      fillFarmLocationFromCoords(lat, lng);
+    });
+
+    google.maps.event.addListener(productMarker, "dragend", e => {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      productLatLng = { lat, lng };
+      fillFarmLocationFromCoords(lat, lng);
+    });
+
+    const fallbackLat = user && user.latitude != null ? Number(user.latitude) : null;
+    const fallbackLng = user && user.longitude != null ? Number(user.longitude) : null;
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+        productMap.setCenter(ll); productMap.setZoom(14); productMarker.setPosition(ll);
+        productLatLng = ll;
+        fillFarmLocationFromCoords(ll.lat, ll.lng);
+      },()=>{
+        if (fallbackLat != null && fallbackLng != null) {
+          const ll={lat:fallbackLat,lng:fallbackLng};
+          productMap.setCenter(ll); productMap.setZoom(12); productMarker.setPosition(ll);
+          productLatLng = ll;
+          fillFarmLocationFromCoords(ll.lat, ll.lng);
+        }
+        const input = document.getElementById("p-dist");
+        if(input && !input.value && user && user.district){ input.value = user.district; }
+      });
+    } else if (fallbackLat != null && fallbackLng != null) {
+      const ll={lat:fallbackLat,lng:fallbackLng};
+      productMap.setCenter(ll); productMap.setZoom(12); productMarker.setPosition(ll);
+      productLatLng = ll;
+      fillFarmLocationFromCoords(ll.lat, ll.lng);
+    }
+  });
+}
 
 function show(name){
   document.querySelectorAll("main > section").forEach(s=>s.style.display="none");
@@ -126,6 +282,7 @@ function show(name){
   if(name==="chat")loadChatRooms();
   if(name==="profile")loadProfile();
   if(name==="overview")loadOverview();
+  if(name==="add") initFarmerProductMap();
   if(window.innerWidth<=768){
     const sidebar=document.getElementById("sidebar");
     const overlay=document.getElementById("sidebar-overlay");
@@ -194,10 +351,20 @@ async function addProduct(){
   const btn=document.getElementById("add-btn");
   const qty=parseFloat(document.getElementById("p-qty").value);
   const unit=document.getElementById("p-unit").value;
-  const data={name:document.getElementById("p-name").value.trim(),category:document.getElementById("p-cat").value,description:document.getElementById("p-desc").value||null,quantity_kg:qty,quantity_unit:unit,price_per_kg:parseFloat(document.getElementById("p-price").value),min_order_kg:parseFloat(document.getElementById("p-min").value)||1,district:document.getElementById("p-dist").value||null,is_organic:document.getElementById("p-org").checked,harvest_date:document.getElementById("p-harvest").value||null,image_url:uploadedImageUrl};
+  const districtValue = (document.getElementById("p-dist").value || "").trim();
+  const locationValue = (document.getElementById("p-location").value || "").trim();
+  const data={name:document.getElementById("p-name").value.trim(),category:document.getElementById("p-cat").value,description:document.getElementById("p-desc").value||null,quantity_kg:qty,quantity_unit:unit,price_per_kg:parseFloat(document.getElementById("p-price").value),min_order_kg:parseFloat(document.getElementById("p-min").value)||1,district:districtValue || null,is_organic:document.getElementById("p-org").checked,harvest_date:document.getElementById("p-harvest").value||null,image_url:uploadedImageUrl};
+  if (!data.district && locationValue) {
+    data.district = locationValue.split(',').slice(-2).join(',').trim() || locationValue;
+  }
+  if (productLatLng) {
+    data.latitude = productLatLng.lat;
+    data.longitude = productLatLng.lng;
+  }
   if(!data.name||!data.category||!data.quantity_kg||!data.price_per_kg){showToast("Fill in all required fields","error");return}
+  if(!data.district && user && user.district){data.district = user.district;}
   btn.innerHTML='<span class="loader"></span>';btn.disabled=true;
-  try{await API.createProduct(data);showToast("Product listed! 🌿","success");["p-name","p-desc","p-qty","p-price","p-dist"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-cat").value="";document.getElementById("p-org").checked=false;clearImage();show("products");}
+  try{await API.createProduct(data);showToast("Product listed! 🌿","success");["p-name","p-desc","p-qty","p-price","p-dist","p-location"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-cat").value="";document.getElementById("p-org").checked=false;productLatLng=null;clearImage();show("products");}
   catch(e){showToast(e.message,"error")}finally{btn.innerHTML="List Product";btn.disabled=false}
 }
 

@@ -85,11 +85,21 @@ async def update_order_status(order_id: int, data: OrderStatusUpdate, current_us
     result = await db.execute(select(Order).where(Order.id == order_id))
     o = result.scalar_one_or_none()
     if not o: raise HTTPException(404, "Order not found")
+    if current_user.id not in (o.farmer_id, o.buyer_id):
+        raise HTTPException(403, "Not your order")
+
     allowed = {"pending":["accepted","rejected","cancelled"],"accepted":["payment_pending","cancelled"],
                "payment_pending":["paid","cancelled"],"paid":["in_transit"],"in_transit":["delivered"],
                "delivered":["completed","disputed"]}
     if data.status not in allowed.get(o.status, []):
         raise HTTPException(400, f"Cannot move from {o.status} to {data.status}")
+
+    farmer_only_statuses = {"accepted", "rejected", "in_transit", "delivered", "completed", "disputed"}
+    if data.status in farmer_only_statuses and current_user.id != o.farmer_id:
+        raise HTTPException(403, "Only the farmer who listed the product can change this order status")
+    if data.status == "cancelled" and current_user.id not in (o.farmer_id, o.buyer_id):
+        raise HTTPException(403, "Only the buyer or seller can cancel this order")
+
     o.status = data.status
     if data.notes: o.notes = data.notes
     if data.status == "accepted": o.accepted_at = datetime.utcnow()
