@@ -66,6 +66,7 @@ async def create_order(data: OrderCreate, current_user: User = Depends(require_m
         product.quantity_kg = max(0, product.quantity_kg - data.quantity_kg)
         await db.flush()
     await db.refresh(order)
+    await push_order_status_update(db, order.id, order.status, current_user.id)
     return OrderOut.model_validate(order)
 
 @order_router.get("/", response_model=List[OrderOut])

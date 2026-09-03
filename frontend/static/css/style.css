@@ -56,10 +56,10 @@
 .role-selector{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
 .role-btn{padding:1rem;border:2px solid var(--border);border-radius:9px;text-align:center;cursor:pointer;transition:all .2s;background:white;font-size:.9rem}
 .role-btn.selected{border-color:var(--green);background:var(--green-pale);color:var(--green)}.role-btn .role-icon{font-size:1.8rem;display:block;margin-bottom:.3rem}
-.toast-container{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.6rem}
-.toast{background:white;border-radius:9px;padding:.85rem 1.1rem;box-shadow:0 4px 16px rgba(0,0,0,0.15);border-left:4px solid;min-width:260px;font-size:.9rem;animation:slideIn .3s ease;display:flex;align-items:center;gap:.75rem}
+.toast-container{position:fixed;top:4.75rem;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;align-items:stretch;gap:.6rem;width:min(92vw,420px);pointer-events:none}
+.toast{background:white;border-radius:9px;padding:.95rem 1.1rem;box-shadow:0 6px 22px rgba(0,0,0,0.22);border-left:4px solid;min-width:0;font-size:.95rem;animation:slideIn .3s ease;display:flex;align-items:center;justify-content:center;gap:.75rem;text-align:center;pointer-events:auto}
 .toast.success{border-color:var(--green)}.toast.error{border-color:#e53935}.toast.info{border-color:#1565c0}
-@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideIn{from{transform:translateY(-14px);opacity:0}to{transform:translateY(0);opacity:1}}
 .section-title{font-size:1.4rem;font-weight:700;margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
 .empty-state{text-align:center;padding:3rem;color:var(--muted)}.empty-state .icon{font-size:3rem;margin-bottom:1rem}
 .loader{display:inline-block;width:20px;height:20px;border:2.5px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite}

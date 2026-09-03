@@ -20,7 +20,7 @@ async function apiFetch(path,options={}){
   const headers={"Content-Type":"application/json",...(options.headers||{})};
   if(token)headers["Authorization"]=`Bearer ${token}`;
 
-  const res=await fetch(API_BASE+path,{...options,headers});
+  const res=await fetch(API_BASE+path,{...options,headers,cache:"no-store"});
 
   if(res.status===401){
     const rt=localStorage.getItem("refresh_token");
@@ -175,23 +175,30 @@ function startOrderStatusToastWatcher(){
   const check = async () => {
     try {
       const orders = await API.listOrders();
-      const snapshot = JSON.parse(localStorage.getItem("agri_order_status_snapshot") || "{}");
+      const currentUser = getUser() || {};
+      const snapshotKey = `agri_order_status_snapshot_${currentUser.id || "guest"}_${currentUser.role || "unknown"}`;
+      const productSnapshotKey = `agri_product_stock_snapshot_${currentUser.id || "guest"}_${currentUser.role || "unknown"}`;
+      const snapshot = JSON.parse(localStorage.getItem(snapshotKey) || "{}");
       const next = {};
       let changed = false;
+      const isFarmer = currentUser.role === "farmer";
       (orders || []).forEach(o => {
         next[o.id] = o.status;
         const prev = snapshot[o.id];
-        if (prev && prev !== o.status) {
+        if (isFarmer && prev === undefined && o.status === "pending") {
+          changed = true;
+          showToast(`${o.order_number}: New order received`, "info");
+        } else if (prev && prev !== o.status) {
           changed = true;
           const label = statusText[o.status] || `Order moved to ${o.status.replace("_", " ")}`;
           showToast(`${o.order_number}: ${label}`, "info");
         }
       });
-      localStorage.setItem("agri_order_status_snapshot", JSON.stringify(next));
+      localStorage.setItem(snapshotKey, JSON.stringify(next));
 
       try {
         const products = await API.listProducts({ limit: 200 });
-        const productSnapshot = JSON.parse(localStorage.getItem("agri_product_stock_snapshot") || "{}");
+        const productSnapshot = JSON.parse(localStorage.getItem(productSnapshotKey) || "{}");
         const productNext = {};
         (products || []).forEach(p => {
           const qty = Number(p.quantity_kg || 0);
@@ -202,7 +209,7 @@ function startOrderStatusToastWatcher(){
             showToast(`${p.name}: stock updated to ${qty}kg`, "info");
           }
         });
-        localStorage.setItem("agri_product_stock_snapshot", JSON.stringify(productNext));
+        localStorage.setItem(productSnapshotKey, JSON.stringify(productNext));
       } catch (productError) {
         // ignore product snapshot errors
       }
