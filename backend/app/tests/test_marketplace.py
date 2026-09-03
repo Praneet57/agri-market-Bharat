@@ -72,3 +72,4 @@ class TestOrders:
         br = await client.patch(f"/api/v1/orders/{oid}/status", headers={"Authorization": f"Bearer {farmer_token}"},
             json={"status":"completed"})
         assert br.status_code == 400
+

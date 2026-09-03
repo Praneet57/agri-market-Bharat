@@ -146,6 +146,79 @@ function showToast(msg,type="success"){
   c.appendChild(t);setTimeout(()=>t.remove(),4000);
 }
 
+function triggerDashboardRefresh(reason = "status"){
+  if (typeof window.refreshDashboardData === "function") {
+    window.refreshDashboardData(reason);
+    return;
+  }
+  if (window.location.pathname.includes("/buyer/dashboard.html") || window.location.pathname.includes("/farmer/dashboard.html")) {
+    window.location.reload();
+  }
+}
+
+function startOrderStatusToastWatcher(){
+  if(window.__orderStatusToastWatcherStarted) return;
+  window.__orderStatusToastWatcherStarted = true;
+  const statusText = {
+    pending: "Order placed",
+    accepted: "Order accepted",
+    payment_pending: "Payment pending",
+    paid: "Payment confirmed",
+    in_transit: "Order dispatched",
+    delivered: "Order delivered",
+    completed: "Order completed",
+    rejected: "Order rejected",
+    cancelled: "Order cancelled",
+    disputed: "Order disputed"
+  };
+
+  const check = async () => {
+    try {
+      const orders = await API.listOrders();
+      const snapshot = JSON.parse(localStorage.getItem("agri_order_status_snapshot") || "{}");
+      const next = {};
+      let changed = false;
+      (orders || []).forEach(o => {
+        next[o.id] = o.status;
+        const prev = snapshot[o.id];
+        if (prev && prev !== o.status) {
+          changed = true;
+          const label = statusText[o.status] || `Order moved to ${o.status.replace("_", " ")}`;
+          showToast(`${o.order_number}: ${label}`, "info");
+        }
+      });
+      localStorage.setItem("agri_order_status_snapshot", JSON.stringify(next));
+
+      try {
+        const products = await API.listProducts({ limit: 200 });
+        const productSnapshot = JSON.parse(localStorage.getItem("agri_product_stock_snapshot") || "{}");
+        const productNext = {};
+        (products || []).forEach(p => {
+          const qty = Number(p.quantity_kg || 0);
+          productNext[p.id] = qty;
+          const prevQty = productSnapshot[p.id];
+          if (prevQty !== undefined && Number(prevQty) !== qty) {
+            changed = true;
+            showToast(`${p.name}: stock updated to ${qty}kg`, "info");
+          }
+        });
+        localStorage.setItem("agri_product_stock_snapshot", JSON.stringify(productNext));
+      } catch (productError) {
+        // ignore product snapshot errors
+      }
+
+      if (changed) {
+        triggerDashboardRefresh("status-change");
+      }
+    } catch (e) {
+      // ignore background polling failures
+    }
+  };
+
+  check();
+  setInterval(check, 8000);
+}
+
 function statusBadge(s){return`<span class="status status-${s}">${s.replace("_"," ")}</span>`}
 function formatDate(d){if(!d)return"-";return new Date(d).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
 function formatCurrency(n){return"₹"+Number(n).toLocaleString("en-IN",{minimumFractionDigits:2})}

@@ -48,7 +48,11 @@ function connectWS(){
   ws.onopen=()=>document.getElementById("online-dot").style.display="inline-block";
   ws.onmessage=(e)=>{
     const d=JSON.parse(e.data);
-    if(d.type==="message"){appendMsg(d);scrollBottom()}
+    if(d.type==="message"){
+      appendMsg(d); 
+      if(d.message_type==="system") showToast(d.message,"info");
+      scrollBottom();
+    }
     else if(d.type==="typing"&&d.user_id!==me.id){document.getElementById("typing-indicator").textContent=d.is_typing?"Other person is typing…":""}
     else if(d.type==="presence"){const online=d.online_users.some(u=>u!==me.id);document.getElementById("online-dot").style.display=online?"inline-block":"none"}
   };
@@ -65,12 +69,13 @@ function renderMsgs(msgs){
 function appendMsg(msg,animate=true){
   const c=document.getElementById("msgs");
   if(c.querySelector("[data-empty]"))c.innerHTML="";
-  const mine=msg.sender_id===me.id;
+  const isSystem = msg.message_type === "system";
+  const mine = !isSystem && msg.sender_id === me.id;
   const time=new Date(msg.created_at).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
   const d=document.createElement("div");
-  d.className=`message ${mine?"mine":"theirs"}`;
+  d.className = isSystem ? "message system" : `message ${mine?"mine":"theirs"}`;
   if(animate)d.style.animation="slideIn .2s ease";
-  d.innerHTML=`<div>${escHtml(msg.message)}</div><div class="message-time">${time}</div>`;
+  d.innerHTML=`<div>${escHtml(msg.message)}</div><div class="message-time">${isSystem ? "Status" : time}</div>`;
   c.appendChild(d);
 }
 

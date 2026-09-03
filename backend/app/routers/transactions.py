@@ -12,6 +12,7 @@ from app.models.demand import Demand
 from app.models.product import Product
 from app.models.order import Order
 from app.models.payment import Payment, Agreement, Rating
+from app.routers.chat import push_order_status_update
 from app.schemas import DemandCreate, DemandOut, OrderCreate, OrderOut, OrderStatusUpdate, PaymentCreate, PaymentVerify, RatingCreate, RatingOut
 
 demand_router = APIRouter(prefix="/demands", tags=["Demands"])
@@ -103,7 +104,9 @@ async def update_order_status(order_id: int, data: OrderStatusUpdate, current_us
             if prod:
                 prod.quantity_kg += o.quantity_kg
                 await db.flush()
-    await db.flush(); return OrderOut.model_validate(o)
+    await db.flush()
+    await push_order_status_update(db, o.id, o.status, current_user.id)
+    return OrderOut.model_validate(o)
 
 payment_router = APIRouter(prefix="/payments", tags=["Payments"])
 
