@@ -571,7 +571,7 @@ async function loadOrders(){
   try{
     const os=await API.listOrders();
     if(!os.length){el.innerHTML='<div class="empty-state"><div class="icon">📦</div><p>No orders yet. <a href="#" onclick="show(\'market\')">Browse marketplace →</a></p></div>';return}
-    el.innerHTML=os.map(o=>`<div class="card" style="margin-bottom:1rem"><div class="card-header"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatDate(o.created_at)}</div></div>${statusBadge(o.status)}</div><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem"><div><div class="text-sm text-muted">Qty</div><strong>${o.quantity_kg}kg</strong></div><div><div class="text-sm text-muted">Rate</div><strong>${formatCurrency(o.price_per_kg)}/kg</strong></div><div><div class="text-sm text-muted">You Pay</div><strong>${formatCurrency(o.total_amount)}</strong></div></div><div class="card-footer">${o.status==="accepted"?`<button class="btn btn-green btn-sm" onclick="payOrder(${o.id})">💳 Pay Now</button>`:''} ${o.status==="delivered"?`<button class="btn btn-green btn-sm" onclick="confirmReceipt(${o.id})">✅ Confirm Receipt</button>`:''} ${o.status==="pending"?`<button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">Cancel</button>`:''} <a href="/chat.html?order_id=${o.id}" class="btn btn-outline-green btn-sm">💬 Chat</a><button class="btn btn-gray btn-sm" onclick="genPDF(${o.id})">📄 Agreement</button>${o.status==="completed"?`<button class="btn btn-amber btn-sm" onclick="rateOrder(${o.id},${o.farmer_id})">⭐ Rate Farmer</button>`:''}</div></div>`).join("");
+    el.innerHTML=os.map(o=>`<div class="card" style="margin-bottom:1rem"><div class="card-header"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatDate(o.created_at)}</div></div>${statusBadge(o.status)}</div><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem"><div><div class="text-sm text-muted">Qty</div><strong>${o.quantity_kg}kg</strong></div><div><div class="text-sm text-muted">Rate</div><strong>${formatCurrency(o.price_per_kg)}/kg</strong></div><div><div class="text-sm text-muted">You Pay</div><strong>${formatCurrency(o.total_amount)}</strong></div></div><div style="padding:0 1rem 1rem;border-top:1px solid rgba(0,0,0,.05)"><div class="text-sm text-muted" style="margin-top:.75rem;">📍 Delivery: ${o.delivery_address || o.district || 'Address not set'}</div>${o.district?`<div class="text-sm text-muted">📦 District: ${o.district}</div>`:''}${o.latitude && o.longitude ? `<div class="text-sm text-muted">🧭 ${o.latitude.toFixed(4)}, ${o.longitude.toFixed(4)}</div>` : ''}${o.product && o.product.latitude && o.product.longitude ? `<div class="text-sm text-muted">🌾 Pickup from farmer: ${o.product.latitude.toFixed(4)}, ${o.product.longitude.toFixed(4)}</div>` : ''}</div><div class="card-footer">${o.status==="accepted"?`<button class="btn btn-green btn-sm" onclick="payOrder(${o.id})">💳 Pay Now</button>`:''} ${o.status==="delivered"?`<button class="btn btn-green btn-sm" onclick="confirmReceipt(${o.id})">✅ Confirm Receipt</button>`:''} ${o.status==="pending"?`<button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">Cancel</button>`:''} <a href="/chat.html?order_id=${o.id}" class="btn btn-outline-green btn-sm">💬 Chat</a><button class="btn btn-gray btn-sm" onclick="genPDF(${o.id})">📄 Agreement</button>${o.status==="completed"?`<button class="btn btn-amber btn-sm" onclick="rateOrder(${o.id},${o.farmer_id})">⭐ Rate Farmer</button>`:''}</div></div>`).join("");
   }catch(e){el.innerHTML=`<div style="color:red">${e.message}</div>`}
 }
 
@@ -591,10 +591,20 @@ async function loadChatRooms(){
 async function loadProfile(){try{const u=await API.me();document.getElementById("pf-name").value=u.full_name||"";document.getElementById("pf-email").value=u.email||"";document.getElementById("pf-dist").value=u.district||""}catch(e){}}
 async function saveProfile(){try{await API.updateMe({full_name:document.getElementById("pf-name").value,email:document.getElementById("pf-email").value||null,district:document.getElementById("pf-dist").value});showToast("Profile saved! ✅","success")}catch(e){showToast(e.message,"error")}}
 
+window.refreshDashboardData = function(reason = "status") {
+  if (typeof loadOverview === "function") loadOverview();
+  if (typeof loadUserProfileStats === "function") loadUserProfileStats();
+  if (typeof loadOrders === "function") loadOrders();
+  if (typeof loadChatRooms === "function") loadChatRooms();
+  if (typeof loadMarket === "function") loadMarket();
+  if (typeof loadMyDemands === "function") loadMyDemands();
+};
+
 // ── Init ──────────────────────────────────────────────────────────────────
 loadOverview();
 loadUserProfileStats();
 checkFarmerConversionApproval();
+startOrderStatusToastWatcher();
 setInterval(checkFarmerConversionApproval,30000);
 </script>
 </body>

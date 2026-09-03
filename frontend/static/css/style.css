@@ -44,7 +44,9 @@
 .message{max-width:65%;padding:.75rem 1rem;border-radius:12px;font-size:.92rem;line-height:1.5}
 .message.mine{align-self:flex-end;background:var(--green);color:white;border-bottom-right-radius:3px}
 .message.theirs{align-self:flex-start;background:white;border:1px solid var(--border);border-bottom-left-radius:3px}
+.message.system{align-self:center;max-width:78%;background:#f3f4f6;color:#374151;border:1px solid var(--border);border-radius:10px;text-align:center;font-size:.82rem;padding:.6rem .9rem}
 .message-time{font-size:.72rem;opacity:.65;margin-top:.25rem;text-align:right}
+.message.system .message-time{text-align:center}
 .chat-input-bar{padding:1rem 1.5rem;border-top:1px solid var(--border);background:white;display:flex;gap:.75rem;align-items:flex-end}
 .chat-input{flex:1;resize:none;border:1.5px solid var(--border);border-radius:20px;padding:.6rem 1rem;font-size:.92rem;outline:none;font-family:inherit;max-height:120px}
 .chat-input:focus{border-color:var(--green-light)}.online-dot{width:8px;height:8px;background:#4caf50;border-radius:50%;display:inline-block}

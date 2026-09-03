@@ -13,6 +13,19 @@ from app.schemas import MessageOut
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
+ORDER_STATUS_NOTIFICATIONS = {
+    "pending": "Order placed and awaiting confirmation.",
+    "accepted": "Order accepted by the farmer.",
+    "rejected": "Order rejected by the farmer.",
+    "cancelled": "Order cancelled.",
+    "payment_pending": "Payment pending for this order.",
+    "paid": "Payment confirmed. Order is being prepared.",
+    "in_transit": "Order dispatched and is now in transit.",
+    "delivered": "Order delivered successfully.",
+    "completed": "Order completed and payment released.",
+    "disputed": "Order marked as disputed.",
+}
+
 class ConnectionManager:
     def __init__(self):
         self.rooms: Dict[str, List[tuple]] = {}
@@ -32,6 +45,24 @@ class ConnectionManager:
         return [uid for uid,_ in self.rooms.get(room_id, [])]
 
 manager = ConnectionManager()
+
+async def push_order_status_update(db: AsyncSession, order_id: int, status: str, actor_id: int):
+    body = ORDER_STATUS_NOTIFICATIONS.get(status, f"Order status updated to {status.replace('_', ' ')}.")
+    msg = ChatMessage(order_id=order_id, sender_id=actor_id, message=body, message_type="system")
+    db.add(msg)
+    await db.flush()
+    await db.refresh(msg)
+    payload = {
+        "type": "message",
+        "id": msg.id,
+        "order_id": order_id,
+        "sender_id": actor_id,
+        "message": body,
+        "message_type": "system",
+        "created_at": msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat(),
+    }
+    await manager.broadcast(f"order_{order_id}", payload)
+    return msg
 
 @router.websocket("/ws/{order_id}")
 async def websocket_chat(websocket: WebSocket, order_id: int, token: str):

@@ -128,12 +128,87 @@ const user=getUser();
 document.getElementById("nav-avatar").textContent=user.full_name[0].toUpperCase();
 document.getElementById("nav-name").textContent=user.full_name.split(" ")[0];
 const ge=n=>"";
-
 const GOOGLE_MAPS_KEY = (window.GOOGLE_MAPS_KEY || "").trim();
 let productMap = null;
 let productMarker = null;
 let productGeocoder = null;
 let productLatLng = null;
+
+function loadMapScriptForFarmer(cb){
+  if(!GOOGLE_MAPS_KEY || GOOGLE_MAPS_KEY.includes("PASTE_")){
+    const el=document.getElementById("p-map");
+    if(el) el.innerHTML='<span style="padding:1rem;text-align:center;display:block">Map disabled — add a valid Google Maps API key to window.GOOGLE_MAPS_KEY.</span>';
+    return;
+  }
+  if(window.google && window.google.maps){cb();return}
+  if(document.querySelector('script[data-farmer-google-maps]')){
+    const existing=document.querySelector('script[data-farmer-google-maps]');
+    existing.addEventListener('load', cb, { once: true });
+    return;
+  }
+  const s=document.createElement("script");
+  s.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&callback=__farmerMapsReady`;
+  s.async=true;s.defer=true;s.setAttribute('data-farmer-google-maps','true');
+  window.__farmerMapsReady=cb;
+  document.head.appendChild(s);
+}
+
+function setProductMapPoint(ll, autoDistrict = true){
+  if (!ll) return;
+  productLatLng = ll;
+  if (productMarker && productMap) productMarker.setPosition(ll);
+  const coordEl = document.getElementById("p-map-coords");
+  if (coordEl) coordEl.textContent = `📍 ${ll.lat.toFixed(6)}, ${ll.lng.toFixed(6)}`;
+  if (!autoDistrict || !window.google || !google.maps || !productGeocoder) return;
+  productGeocoder.geocode({ location: ll }, (results, status) => {
+    if (status !== 'OK' || !results || !results[0]) return;
+    const districtName = results[0].address_components.find(c => ["administrative_area_level_2","locality","postal_town","sublocality"].includes(c.types[0]) || c.types.includes("administrative_area_level_2"))?.long_name;
+    if (districtName) {
+      const distInput = document.getElementById("p-dist");
+      if (distInput && !distInput.value.trim()) distInput.value = districtName;
+      if (coordEl) coordEl.textContent = `📍 ${districtName} · ${ll.lat.toFixed(6)}, ${ll.lng.toFixed(6)}`;
+    }
+  });
+}
+
+function initProductMap(){
+  loadMapScriptForFarmer(() => {
+    const el=document.getElementById("p-map");
+    if(!el) return;
+    const defaultPos={lat:20.5937,lng:78.9629};
+    productMap=new google.maps.Map(el,{center:defaultPos,zoom:5});
+    productGeocoder=new google.maps.Geocoder();
+    productMarker=new google.maps.Marker({map:productMap,position:defaultPos,draggable:true});
+    productLatLng=null;
+    google.maps.event.addListener(productMap,"click",e=>setProductMapPoint({lat:e.latLng.lat(),lng:e.latLng.lng()}));
+    google.maps.event.addListener(productMarker,"dragend",e=>setProductMapPoint({lat:e.latLng.lat(),lng:e.latLng.lng()}));
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+        productMap.setCenter(ll);productMap.setZoom(14);productMarker.setPosition(ll);
+        setProductMapPoint(ll, true);
+      }, ()=>{
+        productMarker.setPosition(defaultPos);productMap.setCenter(defaultPos);
+      });
+    }
+  });
+}
+
+function useCurrentLocationOnProductMap(){
+  if (!navigator.geolocation) {
+    showToast('Your browser does not support location access','error');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    if (productMap) {
+      productMap.setCenter(ll);productMap.setZoom(14);productMarker.setPosition(ll);
+    }
+    setProductMapPoint(ll, true);
+  }, () => showToast('Location permission was denied. You can still click the map manually.','error'));
+}
+
+initProductMap();
 
 function loadMapScript(cb){
   if(!GOOGLE_MAPS_KEY || GOOGLE_MAPS_KEY.includes("PASTE_")){
@@ -312,7 +387,7 @@ async function loadMyProducts(){
     if(!ps.length){g.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="icon">🌿</div><p>No products yet</p><button class="btn btn-green mt-2" onclick="show(\'add\')">+ Add First Product</button></div>';return}
     g.innerHTML=ps.map(p=>`<div class="card" style="overflow:hidden">
   ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" style="width:100%;height:180px;object-fit:cover;display:block;" />` : `<span class="img-fallback" style="width:100%;height:180px;display:flex;align-items:center;justify-content:center;background:var(--green-pale);color:rgba(0,0,0,0.35);font-size:1.1rem;">No Image</span>`}
-  <div class="card-body"><div class="row-between mb-2"><div><strong>${p.name}</strong></div><span class="status status-${p.status}">${p.status}</span></div><div class="price-tag">${formatCurrency(p.price_per_kg)}/kg</div><div class="text-sm text-muted mt-1">📦 ${formatQty(p)} available · Min ${p.min_order_kg}kg</div>${p.district?`<div class="text-sm text-muted">📍 ${p.district}</div>`:''}${p.is_organic?'<span class="product-badge badge-organic" style="margin-top:.5rem;display:inline-block">🌿 Organic</span>':''}<div class="text-sm text-muted mt-1">👁 ${p.views_count} views</div></div><div class="card-footer"><button class="btn btn-outline-green btn-sm" onclick="findBuyers(${p.id})">🎯 Find Buyers</button><button class="btn btn-gray btn-sm" onclick="editPrice(${p.id},${p.price_per_kg})">✏️ Price</button><button class="btn btn-danger btn-sm" onclick="delProduct(${p.id})">🗑</button></div></div>`).join("");
+  <div class="card-body"><div class="row-between mb-2"><div><strong>${p.name}</strong></div><span class="status status-${p.status}">${p.status}</span></div><div class="price-tag">${formatCurrency(p.price_per_kg)}/kg</div><div class="text-sm text-muted mt-1">📦 ${formatQty(p)} available · Min ${p.min_order_kg}kg</div>${p.district?`<div class="text-sm text-muted">📍 Pickup: ${p.district}</div>`:''}${p.latitude && p.longitude ? `<div class="text-sm text-muted">🧭 ${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}</div>` : ''}${p.is_organic?'<span class="product-badge badge-organic" style="margin-top:.5rem;display:inline-block">🌿 Organic</span>':''}<div class="text-sm text-muted mt-1">👁 ${p.views_count} views</div></div><div class="card-footer"><button class="btn btn-outline-green btn-sm" onclick="findBuyers(${p.id})">🎯 Find Buyers</button><button class="btn btn-gray btn-sm" onclick="editPrice(${p.id},${p.price_per_kg})">✏️ Price</button><button class="btn btn-danger btn-sm" onclick="delProduct(${p.id})">🗑</button></div></div>`).join("");
   }catch(e){g.innerHTML=`<div style="color:red;grid-column:1/-1">${e.message}</div>`}
 }
 
@@ -353,7 +428,7 @@ async function addProduct(){
   const unit=document.getElementById("p-unit").value;
   const districtValue = (document.getElementById("p-dist").value || "").trim();
   const locationValue = (document.getElementById("p-location").value || "").trim();
-  const data={name:document.getElementById("p-name").value.trim(),category:document.getElementById("p-cat").value,description:document.getElementById("p-desc").value||null,quantity_kg:qty,quantity_unit:unit,price_per_kg:parseFloat(document.getElementById("p-price").value),min_order_kg:parseFloat(document.getElementById("p-min").value)||1,district:districtValue || null,is_organic:document.getElementById("p-org").checked,harvest_date:document.getElementById("p-harvest").value||null,image_url:uploadedImageUrl};
+  const data={name:document.getElementById("p-name").value.trim(),category:document.getElementById("p-cat").value,description:document.getElementById("p-desc").value||null,quantity_kg:qty,quantity_unit:unit,price_per_kg:parseFloat(document.getElementById("p-price").value),min_order_kg:parseFloat(document.getElementById("p-min").value)||1,district:districtValue || (user && user.district ? user.district : null),latitude:productLatLng ? productLatLng.lat : (user && user.latitude ? user.latitude : null),longitude:productLatLng ? productLatLng.lng : (user && user.longitude ? user.longitude : null),is_organic:document.getElementById("p-org").checked,harvest_date:document.getElementById("p-harvest").value||null,image_url:uploadedImageUrl};
   if (!data.district && locationValue) {
     data.district = locationValue.split(',').slice(-2).join(',').trim() || locationValue;
   }
@@ -438,7 +513,7 @@ async function loadOrders(){
   try{
     const os=await API.listOrders();
     if(!os.length){el.innerHTML='<div class="empty-state"><div class="icon">📦</div><p>No orders yet</p></div>';return}
-    el.innerHTML=os.map(o=>`<div class="card" style="margin-bottom:1rem"><div class="card-header"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatDate(o.created_at)}</div></div>${statusBadge(o.status)}</div><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem"><div><div class="text-sm text-muted">Qty</div><strong>${o.quantity_kg}kg</strong></div><div><div class="text-sm text-muted">Rate</div><strong>${formatCurrency(o.price_per_kg)}/kg</strong></div><div><div class="text-sm text-muted">Total</div><strong>${formatCurrency(o.total_amount)}</strong></div><div><div class="text-sm text-muted">You Get</div><strong style="color:var(--green)">${formatCurrency(o.net_amount)}</strong></div></div><div class="card-footer">${o.status==="pending"?`<button class="btn btn-green btn-sm" onclick="updStatus(${o.id},'accepted')">✅ Accept</button><button class="btn btn-danger btn-sm" onclick="updStatus(${o.id},'rejected')">❌ Reject</button>`:''} ${o.status==="paid"?`<button class="btn btn-amber btn-sm" onclick="updStatus(${o.id},'in_transit')">🚚 Dispatch</button>`:''} ${o.status==="in_transit"?`<button class="btn btn-green btn-sm" onclick="updStatus(${o.id},'delivered')">📬 Delivered</button>`:''} <a href="/chat.html?order_id=${o.id}" class="btn btn-outline-green btn-sm">💬 Chat</a><button class="btn btn-gray btn-sm" onclick="genPDF(${o.id})">📄 Agreement</button></div></div>`).join("");
+    el.innerHTML=os.map(o=>`<div class="card" style="margin-bottom:1rem"><div class="card-header"><div><strong>${o.order_number}</strong><div class="text-sm text-muted">${formatDate(o.created_at)}</div></div>${statusBadge(o.status)}</div><div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem"><div><div class="text-sm text-muted">Qty</div><strong>${o.quantity_kg}kg</strong></div><div><div class="text-sm text-muted">Rate</div><strong>${formatCurrency(o.price_per_kg)}/kg</strong></div><div><div class="text-sm text-muted">Total</div><strong>${formatCurrency(o.total_amount)}</strong></div><div><div class="text-sm text-muted">You Get</div><strong style="color:var(--green)">${formatCurrency(o.net_amount)}</strong></div></div><div style="padding:0 1rem 1rem;border-top:1px solid rgba(0,0,0,.05)"><div class="text-sm text-muted" style="margin-top:.75rem;">📍 Delivery: ${o.delivery_address || o.district || 'Address not set'}</div>${o.district?`<div class="text-sm text-muted">📦 District: ${o.district}</div>`:''}${o.latitude && o.longitude ? `<div class="text-sm text-muted">🧭 ${o.latitude.toFixed(4)}, ${o.longitude.toFixed(4)}</div>` : ''}</div><div class="card-footer">${o.status==="pending"?`<button class="btn btn-green btn-sm" onclick="updStatus(${o.id},'accepted')">✅ Accept</button><button class="btn btn-danger btn-sm" onclick="updStatus(${o.id},'rejected')">❌ Reject</button>`:''} ${o.status==="paid"?`<button class="btn btn-amber btn-sm" onclick="updStatus(${o.id},'in_transit')">🚚 Dispatch</button>`:''} ${o.status==="in_transit"?`<button class="btn btn-green btn-sm" onclick="updStatus(${o.id},'delivered')">📬 Delivered</button>`:''} <a href="/chat.html?order_id=${o.id}" class="btn btn-outline-green btn-sm">💬 Chat</a><button class="btn btn-gray btn-sm" onclick="genPDF(${o.id})">📄 Agreement</button></div></div>`).join("");
   }catch(e){el.innerHTML=`<div style="color:red">${e.message}</div>`}
 }
 
@@ -455,7 +530,16 @@ async function loadProfile(){
 }
 async function saveProfile(){try{await API.updateMe({full_name:document.getElementById("pf-name").value,email:document.getElementById("pf-email").value||null,bio:document.getElementById("pf-bio").value,district:document.getElementById("pf-dist").value});showToast("Profile saved! ✅","success")}catch(e){showToast(e.message,"error")}}
 
+window.refreshDashboardData = function(reason = "status") {
+  if (typeof loadOverview === "function") loadOverview();
+  if (typeof loadMyProducts === "function") loadMyProducts();
+  if (typeof loadOrders === "function") loadOrders();
+  if (typeof loadDemands === "function") loadDemands();
+  if (typeof loadBuyMarket === "function") loadBuyMarket();
+};
+
 loadOverview();
+startOrderStatusToastWatcher();
 
 const farmerConversionMessage=localStorage.getItem("farmer_conversion_success");
 if(farmerConversionMessage){
